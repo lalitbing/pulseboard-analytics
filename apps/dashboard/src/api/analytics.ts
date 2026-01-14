@@ -32,3 +32,18 @@ export const getTopEvents = async (range: any) => {
 
   return data;
 };
+
+export const trackEvent = async (eventName: string) => {
+  const { data } = await axios.post(
+    `${API}/track`,
+    { event: eventName },
+    {
+      headers: {
+        "x-api-key": API_KEY,
+        "Content-Type": "application/json",
+      },
+    }
+  );
+
+  return data;
+};

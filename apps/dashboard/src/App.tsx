@@ -5,6 +5,7 @@ import TopEvents from './components/TopEvents';
 import KPI from './components/KPI';
 import Card from './components/Card';
 import DateFilter from './components/DateFilter';
+import EventTracker from './components/EventTracker';
 
 function App() {
   const [events, setEvents] = useState<any[]>([]);
@@ -91,7 +92,8 @@ function App() {
         <p className="text-sm text-gray-600">{formatRangeLabel(appliedRange.from, appliedRange.to)}</p>
 
         {/* Filters */}
-        <div className="sm:self-end">
+        <div className="sm:self-end flex flex-col sm:flex-row gap-3">
+          <EventTracker />
           <DateFilter
             range={draftRange}
             onChange={handleRangeChange}
