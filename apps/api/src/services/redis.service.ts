@@ -1,16 +1,31 @@
 import Redis from "ioredis"
 
-export const redis = new Redis(process.env.REDIS_URL!, {
-  tls: {}   // REQUIRED for Upstash
-})
+let _redis: Redis | null = null
+
+function createRedisClient(url: string) {
+  // Upstash uses TLS via `rediss://...`; local Redis often uses `redis://...` (no TLS).
+  const useTls = url.startsWith("rediss://")
+  return new Redis(url, useTls ? { tls: {} } : {})
+}
+
+export function getRedis() {
+  if (_redis) return _redis
+  const url = process.env.REDIS_URL
+  if (!url) {
+    throw new Error("REDIS_URL is not set")
+  }
+  _redis = createRedisClient(url)
+  return _redis
+}
 
 export const pushToQueue = async (data: any) => {
-  await redis.lpush("events", JSON.stringify(data))
+  await getRedis().lpush("events", JSON.stringify(data))
 }
 
 export const WORKER_HEARTBEAT_KEY = "pulseboard:worker:heartbeat"
 
 export async function getWorkerHeartbeatStatus() {
+  const redis = getRedis()
   const [exists, ttlSeconds, lastSeenRaw] = await Promise.all([
     redis.exists(WORKER_HEARTBEAT_KEY),
     redis.ttl(WORKER_HEARTBEAT_KEY),

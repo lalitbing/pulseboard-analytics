@@ -3,22 +3,37 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.WORKER_HEARTBEAT_KEY = exports.pushToQueue = exports.redis = void 0;
+exports.WORKER_HEARTBEAT_KEY = exports.pushToQueue = void 0;
+exports.getRedis = getRedis;
 exports.getWorkerHeartbeatStatus = getWorkerHeartbeatStatus;
 const ioredis_1 = __importDefault(require("ioredis"));
-exports.redis = new ioredis_1.default(process.env.REDIS_URL, {
-    tls: {} // REQUIRED for Upstash
-});
+let _redis = null;
+function createRedisClient(url) {
+    // Upstash uses TLS via `rediss://...`; local Redis often uses `redis://...` (no TLS).
+    const useTls = url.startsWith("rediss://");
+    return new ioredis_1.default(url, useTls ? { tls: {} } : {});
+}
+function getRedis() {
+    if (_redis)
+        return _redis;
+    const url = process.env.REDIS_URL;
+    if (!url) {
+        throw new Error("REDIS_URL is not set");
+    }
+    _redis = createRedisClient(url);
+    return _redis;
+}
 const pushToQueue = async (data) => {
-    await exports.redis.lpush("events", JSON.stringify(data));
+    await getRedis().lpush("events", JSON.stringify(data));
 };
 exports.pushToQueue = pushToQueue;
 exports.WORKER_HEARTBEAT_KEY = "pulseboard:worker:heartbeat";
 async function getWorkerHeartbeatStatus() {
+    const redis = getRedis();
     const [exists, ttlSeconds, lastSeenRaw] = await Promise.all([
-        exports.redis.exists(exports.WORKER_HEARTBEAT_KEY),
-        exports.redis.ttl(exports.WORKER_HEARTBEAT_KEY),
-        exports.redis.get(exports.WORKER_HEARTBEAT_KEY),
+        redis.exists(exports.WORKER_HEARTBEAT_KEY),
+        redis.ttl(exports.WORKER_HEARTBEAT_KEY),
+        redis.get(exports.WORKER_HEARTBEAT_KEY),
     ]);
     const active = exists === 1 && ttlSeconds > 0;
     const lastSeenMs = lastSeenRaw ? Number(lastSeenRaw) : null;
