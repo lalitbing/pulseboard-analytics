@@ -1,72 +1,348 @@
-# Analytics Dashboard
+Here’s a **production-grade README.md** you can directly use in your repo.
+It’s structured for recruiters, engineers, and open-source users.
 
-A real-time analytics dashboard built with React, TypeScript, and Vite. Supports both REST API polling and real-time WebSocket updates via Supabase.
+---
 
-## Features
+# 🚀 Pulseboard – Full-Stack Analytics Platform
 
-- Real-time event tracking with WebSocket support
-- REST API fallback for traditional polling
-- Toggle between real-time and polling modes
-- Date range filtering
-- Event statistics and visualizations
-- CSV export functionality
+Pulseboard is a lightweight, scalable analytics platform built from scratch to track custom events, process them asynchronously, and visualize insights in real time.
 
-## Environment Variables
+It is designed as a **cost-efficient alternative to paid analytics tools** while following production-grade system design patterns.
 
-Create a `.env.local` file in this directory with the following variables:
+**Live Demo**
+👉 [https://pulseboard-platform.vercel.app/](https://pulseboard-platform.vercel.app/)
 
-```bash
-# API Configuration
-VITE_API_URL=http://localhost:4000/api
-VITE_API_KEY=your_api_key_here
+---
 
-# Supabase Configuration (for real-time features)
-# Get these from your Supabase project settings
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key_here
+# 📌 Features
+
+* Custom event tracking API
+* Async ingestion using Redis queue
+* Background worker for reliable processing
+* Real-time dashboard updates
+* KPI metrics & charts
+* Date range filters
+* Fully responsive UI
+* API key authentication
+* Zero-cost infrastructure setup
+
+---
+
+# 🏗 Architecture
+
+```
+External Apps
+      |
+      v
+  SDK / Fetch
+      |
+      v
+Backend API (Render)
+      |
+      v
+Redis Queue (Upstash)
+      |
+      v
+Worker (Node.js)
+      |
+      v
+Supabase (Postgres)
+      |
+      v
+Realtime Stream
+      |
+      v
+Dashboard (Vercel)
 ```
 
-### Required Variables
+---
 
-- `VITE_API_URL`: The URL of your analytics API backend
-- `VITE_API_KEY`: Your project API key (used for authentication)
+# 🔄 System Flow
 
-### Optional Variables (for real-time mode)
+### Event Ingestion
 
-- `VITE_SUPABASE_URL`: Your Supabase project URL
-- `VITE_SUPABASE_ANON_KEY`: Your Supabase anonymous/public key
+```
+Client → POST /api/track
+        → API validates key
+        → Push to Redis queue
+        → Worker consumes
+        → Store in DB
+```
 
-**Note:** The dashboard works without Supabase configuration, but real-time features will be disabled. You can still use the REST API mode for fetching data.
+### Analytics Rendering
 
-## Real-Time Mode
+```
+Dashboard → GET /api/stats
+           → API queries DB
+           → Aggregates
+           → Charts rendered
+```
 
-The dashboard supports real-time updates via Supabase WebSocket connections:
+### Real-Time Updates
 
-1. **Enable Real-Time**: Toggle the "Real-time mode" switch in the sidebar
-2. **Live Updates**: New events will automatically appear without manual refresh
-3. **Automatic Sync**: Data updates instantly when events are tracked
-4. **Date Filtering**: Real-time updates respect your selected date range
+```
+DB Insert
+   ↓
+Supabase Realtime
+   ↓
+WebSocket
+   ↓
+Frontend updates instantly
+```
 
-When real-time mode is enabled, you'll see a "Live" indicator with a pulsing dot on the dashboard.
+---
 
-## Getting Started
+# 🛠 Tech Stack
+
+### Frontend
+
+* React
+* TypeScript
+* Tailwind CSS
+* Recharts
+* Vite
+* Hosted on Vercel
+
+### Backend
+
+* Node.js
+* Express
+* Zod validation
+* API key middleware
+* Hosted on Render
+
+### Infra
+
+* Redis (Upstash)
+* Supabase (PostgreSQL)
+* Background worker (Node.js)
+
+---
+
+# 📁 Monorepo Structure
+
+```
+apps/
+ ├── api/        # Backend API
+ ├── dashboard/  # Frontend
+ └── worker/     # Background processor
+
+packages/
+ └── sdk/        # Analytics SDK
+```
+
+---
+
+# ⚙ Setup Guide
+
+## 1️⃣ Clone Repo
 
 ```bash
-# Install dependencies
+git clone <repo-url>
+cd pulseboard
+```
+
+---
+
+## 2️⃣ Backend Setup
+
+```bash
+cd apps/api
 npm install
-
-# Start the development server
 npm run dev
-
-# Build for production
-npm run build
 ```
 
-## Tech Stack
+Create `.env`
 
-- **React 19** with TypeScript
-- **Vite** for fast development and builds
-- **TailwindCSS** for styling
-- **Recharts** for data visualization
-- **Supabase** for real-time WebSocket connections
-- **Axios** for REST API calls
+```
+SUPABASE_URL=
+SUPABASE_KEY=
+REDIS_URL=
+PORT=4000
+```
+
+Health check:
+
+```
+http://localhost:4000/api/health
+```
+
+---
+
+## 3️⃣ Worker Setup
+
+```bash
+cd apps/worker
+npm install
+npm run dev
+```
+
+Worker listens to Redis and writes to DB.
+
+---
+
+## 4️⃣ Frontend Setup
+
+```bash
+cd apps/dashboard
+npm install
+npm run dev
+```
+
+Create `.env`
+
+```
+VITE_API_URL=http://localhost:4000/api
+VITE_API_KEY=your_project_key
+```
+
+---
+
+# 📡 API Usage
+
+### Track Event
+
+```bash
+POST /api/track
+
+Headers:
+x-api-key: YOUR_API_KEY
+
+Body:
+{
+  "event": "signup",
+  "properties": {
+    "plan": "pro"
+  }
+}
+```
+
+---
+
+### Fetch Stats
+
+```
+GET /api/stats/events?from=YYYY-MM-DD&to=YYYY-MM-DD
+GET /api/stats/top-events
+```
+
+---
+
+# 📦 SDK Usage
+
+```bash
+npm install pulseboard-sdk
+```
+
+```ts
+import { Analytics } from "pulseboard-sdk";
+
+const analytics = new Analytics(
+  "PROJECT_API_KEY",
+  "https://your-api-domain/api/track"
+);
+
+analytics.track("signup", {
+  plan: "pro"
+});
+```
+
+---
+
+# 🔐 Security
+
+* API key based authentication
+* Env-based secrets
+* Input validation
+* CORS handling
+* No secrets exposed on frontend
+
+---
+
+# 📊 Use Cases
+
+* Internal product analytics
+* Feature usage tracking
+* User behavior analysis
+* Funnel building
+* Experiment tracking
+* Replacing paid tools
+* Engineering portfolio project
+
+---
+
+# ⚖ Trade-Offs
+
+| Decision              | Reason           |
+| --------------------- | ---------------- |
+| Queue-based ingestion | Non-blocking API |
+| Local worker          | Zero cost        |
+| Supabase              | Managed DB       |
+| Render                | Easy deploy      |
+| Custom dashboard      | Product control  |
+
+---
+
+# 📈 Scaling Strategy
+
+Future improvements:
+
+* Multiple workers
+* Horizontal API scaling
+* Batch ingestion
+* Rate limiting
+* Dead-letter queues
+* Auth dashboard
+* Data export
+
+---
+
+# 🧪 Observability (Planned)
+
+* Request logging
+* Queue depth metrics
+* Error monitoring
+* Alerts
+
+---
+
+# 💰 Cost
+
+| Service  | Cost  |
+| -------- | ----- |
+| Frontend | Free  |
+| Backend  | Free  |
+| Redis    | Free  |
+| DB       | Free  |
+| Worker   | Local |
+
+**Total: $0**
+
+---
+
+# 🧠 What This Project Demonstrates
+
+* Distributed systems
+* Async pipelines
+* Queue processing
+* Cloud deployments
+* System design
+* Performance trade-offs
+* Real-world debugging
+
+---
+
+# ⭐ Future Roadmap
+
+* Auth based dashboards
+* Project management UI
+* Role based access
+* Event schemas
+* Webhook exports
+* Clickhouse backend
+
+---
+
+# 📜 License
+
+MIT
