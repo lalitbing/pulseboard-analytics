@@ -1,8 +1,3 @@
-Here’s a **production-grade README.md** you can directly use in your repo.
-It’s structured for recruiters, engineers, and open-source users.
-
----
-
 # 🚀 Pulseboard – Full-Stack Analytics Platform
 
 Pulseboard is a lightweight, scalable analytics platform built from scratch to track custom events, process them asynchronously, and visualize insights in real time.
