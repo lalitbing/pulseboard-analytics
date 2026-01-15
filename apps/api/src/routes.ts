@@ -15,11 +15,11 @@ router.post('/track', verifyApiKey, validate(trackSchema), trackEvent);
 
 router.post('/track/batch', verifyApiKey, trackBatch);
 
-router.get("/stats/events", verifyApiKey, getEventStats)
-router.get("/stats/top-events", verifyApiKey, getTopEvents)
+router.get('/stats/events', verifyApiKey, getEventStats);
+router.get('/stats/top-events', verifyApiKey, getTopEvents);
 
 // Get project info (for real-time WebSocket setup)
-router.get("/project-info", verifyApiKey, (req: any, res: any) => {
+router.get('/project-info', verifyApiKey, (req: any, res: any) => {
   res.json({
     id: req.project.id,
     project_id: req.project.id,
@@ -27,6 +27,6 @@ router.get("/project-info", verifyApiKey, (req: any, res: any) => {
   });
 });
 
-router.get("/worker-status", verifyApiKey, getWorkerStatus)
+router.get('/worker-status', verifyApiKey, getWorkerStatus);
 
 export default router;

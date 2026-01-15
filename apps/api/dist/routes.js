@@ -13,15 +13,15 @@ const router = (0, express_1.Router)();
 // router.post("/track", verifyApiKey, trackEvent)
 router.post('/track', apiKey_middleware_1.verifyApiKey, (0, validate_middleware_1.validate)(track_schema_1.trackSchema), track_controller_1.trackEvent);
 router.post('/track/batch', apiKey_middleware_1.verifyApiKey, trackBatch_controller_1.trackBatch);
-router.get("/stats/events", apiKey_middleware_1.verifyApiKey, stats_controller_1.getEventStats);
-router.get("/stats/top-events", apiKey_middleware_1.verifyApiKey, stats_controller_1.getTopEvents);
+router.get('/stats/events', apiKey_middleware_1.verifyApiKey, stats_controller_1.getEventStats);
+router.get('/stats/top-events', apiKey_middleware_1.verifyApiKey, stats_controller_1.getTopEvents);
 // Get project info (for real-time WebSocket setup)
-router.get("/project-info", apiKey_middleware_1.verifyApiKey, (req, res) => {
+router.get('/project-info', apiKey_middleware_1.verifyApiKey, (req, res) => {
     res.json({
         id: req.project.id,
         project_id: req.project.id,
         name: req.project.name || 'Default Project',
     });
 });
-router.get("/worker-status", apiKey_middleware_1.verifyApiKey, worker_controller_1.getWorkerStatus);
+router.get('/worker-status', apiKey_middleware_1.verifyApiKey, worker_controller_1.getWorkerStatus);
 exports.default = router;

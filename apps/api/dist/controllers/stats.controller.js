@@ -2,21 +2,24 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getTopEvents = exports.getEventStats = void 0;
 const supabase_1 = require("../db/supabase");
+const toIsoStartUtc = (d) => {
+    // If a full ISO timestamp is provided, respect it.
+    if (d.includes('T'))
+        return new Date(d).toISOString();
+    // `YYYY-MM-DD` should be treated as UTC day boundary.
+    return new Date(`${d}T00:00:00.000Z`).toISOString();
+};
+const toIsoEndUtc = (d) => {
+    if (d.includes('T'))
+        return new Date(d).toISOString();
+    return new Date(`${d}T23:59:59.999Z`).toISOString();
+};
 const getEventStats = async (req, res) => {
     try {
         const { from, to } = req.query;
-        let q = supabase_1.supabase
-            .from('events')
-            .select('created_at')
-            .eq('project_id', req.project.id);
+        let q = supabase_1.supabase.from('events').select('created_at').eq('project_id', req.project.id);
         if (from && to) {
-            const fromDate = new Date(from);
-            const toDate = new Date(to);
-            // move "to" date to end of day
-            toDate.setHours(23, 59, 59, 999);
-            q = q
-                .gte('created_at', fromDate.toISOString())
-                .lte('created_at', toDate.toISOString());
+            q = q.gte('created_at', toIsoStartUtc(String(from))).lte('created_at', toIsoEndUtc(String(to)));
         }
         const { data, error } = await q;
         if (error)
@@ -32,18 +35,9 @@ exports.getEventStats = getEventStats;
 const getTopEvents = async (req, res) => {
     try {
         const { from, to } = req.query;
-        let q = supabase_1.supabase
-            .from('events')
-            .select('event_name, created_at')
-            .eq('project_id', req.project.id);
+        let q = supabase_1.supabase.from('events').select('event_name, created_at').eq('project_id', req.project.id);
         if (from && to) {
-            const fromDate = new Date(from);
-            const toDate = new Date(to);
-            // move "to" date to end of day
-            toDate.setHours(23, 59, 59, 999);
-            q = q
-                .gte('created_at', fromDate.toISOString())
-                .lte('created_at', toDate.toISOString());
+            q = q.gte('created_at', toIsoStartUtc(String(from))).lte('created_at', toIsoEndUtc(String(to)));
         }
         const { data, error } = await q;
         if (error)

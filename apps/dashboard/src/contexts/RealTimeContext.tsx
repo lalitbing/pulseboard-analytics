@@ -2,6 +2,18 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import { RealtimeChannel } from '@supabase/supabase-js';
 
+const toIsoStartUtc = (d: string) => {
+  // If a full ISO timestamp is provided, respect it.
+  if (d.includes('T')) return new Date(d).toISOString();
+  // `YYYY-MM-DD` should be treated as UTC day boundary.
+  return new Date(`${d}T00:00:00.000Z`).toISOString();
+};
+
+const toIsoEndUtc = (d: string) => {
+  if (d.includes('T')) return new Date(d).toISOString();
+  return new Date(`${d}T23:59:59.999Z`).toISOString();
+};
+
 type EventRow = {
   created_at: string;
   event_name: string;
@@ -93,13 +105,9 @@ export function RealTimeProvider({ children }: { children: ReactNode }) {
           .order('created_at', { ascending: false });
 
         if (dateRange) {
-          const fromDate = new Date(dateRange.from);
-          const toDate = new Date(dateRange.to);
-          toDate.setHours(23, 59, 59, 999);
-
           query = query
-            .gte('created_at', fromDate.toISOString())
-            .lte('created_at', toDate.toISOString());
+            .gte('created_at', toIsoStartUtc(dateRange.from))
+            .lte('created_at', toIsoEndUtc(dateRange.to));
         }
 
         const { data, error } = await query;
@@ -177,12 +185,11 @@ export function RealTimeProvider({ children }: { children: ReactNode }) {
           
           // Check if event matches date range filter
           if (dateRange) {
-            const eventDate = new Date(newEvent.created_at);
-            const fromDate = new Date(dateRange.from);
-            const toDate = new Date(dateRange.to);
-            toDate.setHours(23, 59, 59, 999);
+            const eventMs = new Date(newEvent.created_at).getTime();
+            const fromMs = new Date(toIsoStartUtc(dateRange.from)).getTime();
+            const toMs = new Date(toIsoEndUtc(dateRange.to)).getTime();
 
-            if (eventDate < fromDate || eventDate > toDate) {
+            if (eventMs < fromMs || eventMs > toMs) {
               return; // Skip events outside date range
             }
           }
