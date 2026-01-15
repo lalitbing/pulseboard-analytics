@@ -8,6 +8,7 @@ import DateFilter, { type DatePreset } from './components/DateFilter';
 import AppShell from './components/AppShell';
 import EventsView from './components/EventsView';
 import { useRealTime } from './contexts/RealTimeContext';
+import IntegrationView from './components/IntegrationView';
 
 type EventRow = {
   created_at: string;
@@ -61,8 +62,9 @@ function App() {
   const exportRef = useRef<HTMLDivElement | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [snippetTab, setSnippetTab] = useState<'curl' | 'js'>('curl');
-  const [page, setPage] = useState<'Overview' | 'Events' | 'Settings'>('Overview');
+  const [page, setPage] = useState<'Overview' | 'Events' | 'Integration'>('Overview');
   const selectedEventName = null;
+  const showDateFilter = page !== 'Integration';
 
   const makeDefaultRange = () => {
     const to = safeIsoDate(new Date());
@@ -313,6 +315,7 @@ function App() {
       realTimeStatus={realTime.status}
       realTimeError={realTime.error}
       right={
+        showDateFilter ? (
         <div className="w-full">
           <DateFilter
             activePreset={activePreset}
@@ -384,6 +387,7 @@ function App() {
             }
           />
         </div>
+        ) : undefined
       }
     >
       {toast ? (
@@ -554,9 +558,7 @@ function App() {
       ) : page === 'Events' ? (
         <EventsView events={displayEvents} loading={displayLoading} selectedEventName={selectedEventName} onClearSelected={() => {}} />
       ) : (
-        <div className="rounded-2xl border border-gray-200/70 bg-white/80 backdrop-blur shadow-sm p-6">
-          <p className="text-sm text-gray-600">Settings coming soon.</p>
-        </div>
+        <IntegrationView apiUrl={apiUrl} apiKeyPresent={apiKeyPresent} />
       )}
     </AppShell>
   );

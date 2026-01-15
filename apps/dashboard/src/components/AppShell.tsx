@@ -45,8 +45,8 @@ export default function AppShell({
   right?: ReactNode;
   sidebar?: ReactNode;
   children: ReactNode;
-  activeNav?: 'Overview' | 'Events' | 'Settings';
-  onNavigate?: (label: 'Overview' | 'Events' | 'Settings') => void;
+  activeNav?: 'Overview' | 'Events' | 'Integration';
+  onNavigate?: (label: 'Overview' | 'Events' | 'Integration') => void;
   onEventTracked?: () => void;
   realTimeEnabled?: boolean;
   onRealTimeToggle?: (enabled: boolean) => void;
@@ -66,7 +66,7 @@ export default function AppShell({
     };
   }, [mobileMenuOpen]);
 
-  const handleNavClick = (label: 'Overview' | 'Events' | 'Settings') => {
+  const handleNavClick = (label: 'Overview' | 'Events' | 'Integration') => {
     onNavigate?.(label);
     setMobileMenuOpen(false);
   };
@@ -137,13 +137,13 @@ export default function AppShell({
                 </p>
                 <NavItem label="Overview" active={activeNav === 'Overview'} onClick={() => handleNavClick('Overview')} />
                 <NavItem label="Events" active={activeNav === 'Events'} onClick={() => handleNavClick('Events')} />
-                <NavItem label="Settings" active={activeNav === 'Settings'} onClick={() => handleNavClick('Settings')} />
+                <NavItem label="Integration" active={activeNav === 'Integration'} onClick={() => handleNavClick('Integration')} />
               </div>
 
               <div className="rounded-2xl border border-gray-200/70 bg-gray-50 p-4">
                 <p className="text-xs font-semibold text-gray-900">Tip</p>
                 <p className="mt-1 text-xs text-gray-600">
-                  Use the date range + search to isolate spikes.
+                  Use Overview for KPIs, Events for exploration, and Integration for copy/paste snippets. Redis ingestion requires the worker to be active.
                 </p>
               </div>
 
@@ -237,13 +237,13 @@ export default function AppShell({
                 </p>
                 <NavItem label="Overview" active={activeNav === 'Overview'} onClick={() => handleNavClick('Overview')} />
                 <NavItem label="Events" active={activeNav === 'Events'} onClick={() => handleNavClick('Events')} />
-                <NavItem label="Settings" active={activeNav === 'Settings'} onClick={() => handleNavClick('Settings')} />
+                <NavItem label="Integration" active={activeNav === 'Integration'} onClick={() => handleNavClick('Integration')} />
               </div>
 
               <div className="rounded-2xl border border-gray-200/70 bg-white/80 backdrop-blur shadow-sm p-4">
                 <p className="text-xs font-semibold text-gray-900">Tip</p>
                 <p className="mt-1 text-xs text-gray-600">
-                  Use the date range + search to isolate spikes.
+                  Use Overview for KPIs, Events for exploration, and Integration for copy/paste snippets. Redis ingestion requires the worker to be active.
                 </p>
               </div>
 
