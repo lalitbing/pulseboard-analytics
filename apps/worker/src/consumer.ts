@@ -34,6 +34,8 @@ const WORKER_HEARTBEAT_TTL_SECONDS = 20
 const WORKER_HEARTBEAT_INTERVAL_MS = 10_000
 
 const startHeartbeat = () => {
+  console.log("💓 Worker heartbeat started");
+
   // Fire immediately, then refresh periodically.
   const beat = async () => {
     try {
@@ -52,11 +54,17 @@ const startHeartbeat = () => {
   
 export const consume = async () => {
   startHeartbeat()
-  while(true){
-    const data = await getConsumerRedis().brpop("events", 0)
-    if(!data) continue
-
-    const payload = JSON.parse(data[1])
-    await saveEvent(payload)
+  while (true) {
+    const data = await getConsumerRedis().brpop("events", 0);
+    if (!data) continue;
+  
+    try {
+      const payload = JSON.parse(data[1]);
+      await saveEvent(payload);
+    } catch (err) {
+      console.error("❌ Failed to process event:", data[1], err);
+      // DO NOT crash the worker
+    }
   }
+  
 }
