@@ -10,7 +10,7 @@ if (process.env.NODE_ENV !== "production") {
 }
 const app_1 = __importDefault(require("./app"));
 const cors_1 = __importDefault(require("cors"));
-const PORT = process.env.PORT || 4000;
+const PORT = process.env.PORT || 8080;
 app_1.default.use((0, cors_1.default)({
     origin: "*",
     methods: ["GET", "POST"]

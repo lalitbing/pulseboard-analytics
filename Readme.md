@@ -180,10 +180,10 @@ Create `apps/api/.env`:
 SUPABASE_URL=
 SUPABASE_KEY=
 REDIS_URL=
-PORT=4000
+PORT=8080
 ```
 
-Health check: `http://localhost:4000/api/health`
+Health check: `http://localhost:8080/api/health`
 
 #### 2) Worker (required for Redis ingestion)
 
@@ -204,7 +204,7 @@ npm run dev
 Create `apps/dashboard/.env`:
 
 ```bash
-VITE_API_URL=http://localhost:4000/api
+VITE_API_URL=http://localhost:8080/api
 VITE_API_KEY=your_project_key
 
 # Optional (only for Real-time mode in the UI)
@@ -223,7 +223,7 @@ The dashboard UI’s custom event input allows: **alphabets, numbers, underscore
 ### API: Track event
 
 ```bash
-curl -X POST "http://localhost:4000/api/track" \
+curl -X POST "http://localhost:8080/api/track" \
   -H "x-api-key: YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"event":"signup_completed","properties":{"plan":"pro"},"useRedis":false}'

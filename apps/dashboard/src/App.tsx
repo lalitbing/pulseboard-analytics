@@ -125,7 +125,7 @@ function App() {
           }, 10_000);
         }
 
-        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:4000/api'}/project-info`, {
+        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8080/api'}/project-info`, {
           headers: {
             'x-api-key': apiKey,
           },
@@ -264,7 +264,7 @@ function App() {
     return `Stats from ${formatDate(from)} to ${formatDate(to)}`;
   };
 
-  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
   const apiKeyPresent = Boolean(import.meta.env.VITE_API_KEY);
 
   // Use real-time data if enabled, otherwise use REST data

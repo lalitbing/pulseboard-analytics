@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { emitToast } from '../lib/toastBus';
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
+const API = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
 const API_KEY = import.meta.env.VITE_API_KEY;
 
 const SLOW_API_MS = 10_000;
