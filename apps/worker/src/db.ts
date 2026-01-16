@@ -1,6 +1,6 @@
-import { supabase } from "../../api/src/db/supabase"
+import { supabase } from "./supabase"
 
-export const saveEvent = async (payload:any)=>{
+export const saveEvent = async (payload: any) => {
   await supabase.from("events").insert({
     project_id: payload.projectId,
     event_name: payload.event,
