@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import EventTracker from './EventTracker';
+import type { ToastInput } from '../lib/toastBus';
 
 function NavItem({
   label,
@@ -49,7 +50,7 @@ export default function AppShell({
   activeNav?: 'Overview' | 'Events' | 'Integration';
   onNavigate?: (label: 'Overview' | 'Events' | 'Integration') => void;
   onEventTracked?: () => void;
-  onToast?: (message: string) => void;
+  onToast?: (toast: ToastInput) => void;
   realTimeEnabled?: boolean;
   onRealTimeToggle?: (enabled: boolean) => void;
   realTimeStatus?: 'disabled' | 'missing_config' | 'missing_project' | 'connecting' | 'subscribed' | 'error';

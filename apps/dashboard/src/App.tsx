@@ -9,6 +9,7 @@ import AppShell from './components/AppShell';
 import EventsView from './components/EventsView';
 import { useRealTime } from './contexts/RealTimeContext';
 import IntegrationView from './components/IntegrationView';
+import { emitToast, subscribeToast, type ToastInput, type ToastPayload } from './lib/toastBus';
 
 type EventRow = {
   created_at: string;
@@ -60,7 +61,7 @@ function App() {
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
   const exportRef = useRef<HTMLDivElement | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<ToastPayload | null>(null);
   const [snippetTab, setSnippetTab] = useState<'curl' | 'js'>('curl');
   const [page, setPage] = useState<'Overview' | 'Events' | 'Integration'>('Overview');
   const selectedEventName = null;
@@ -112,11 +113,24 @@ function App() {
       }
 
       try {
+        let slowTimer: number | null = null;
+        if (import.meta.env.PROD) {
+          slowTimer = window.setTimeout(() => {
+            emitToast({
+              kind: 'error',
+              title: 'Server waking up…',
+              message: 'Our API may be asleep due to inactivity (onRender). It usually cold starts ~1min. Please wait.',
+              ttlMs: 8000,
+            });
+          }, 10_000);
+        }
+
         const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:4000/api'}/project-info`, {
           headers: {
             'x-api-key': apiKey,
           },
         });
+        if (slowTimer) window.clearTimeout(slowTimer);
 
         if (response.ok) {
           const data = await response.json();
@@ -129,6 +143,10 @@ function App() {
 
     fetchProjectId();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    return subscribeToast((t) => setToast(t));
   }, []);
 
   useEffect(() => {
@@ -164,7 +182,7 @@ function App() {
 
   useEffect(() => {
     if (!toast) return;
-    const t = window.setTimeout(() => setToast(null), 2600);
+    const t = window.setTimeout(() => setToast(null), toast.ttlMs ?? 2600);
     return () => window.clearTimeout(t);
   }, [toast]);
 
@@ -277,7 +295,7 @@ function App() {
 
   const handleRealTimeToggle = (enabled: boolean) => {
     if (enabled && !realTime.isConfigured) {
-      setToast('Real-time unavailable: missing Supabase env');
+      setToast({ kind: 'error', message: 'Real-time unavailable: missing Supabase env' });
       return;
     }
     realTime.setRealTimeEnabled(enabled);
@@ -304,9 +322,9 @@ function App() {
       subtitle={page === 'Overview' ? formatRangeLabel(appliedRange.from, appliedRange.to) : undefined}
       activeNav={page}
       onNavigate={(p) => setPage(p)}
-      onToast={(msg) => setToast(msg)}
+      onToast={(t: ToastInput) => setToast(typeof t === 'string' ? { message: t } : t)}
       onEventTracked={() => {
-        setToast('Event tracked');
+        setToast({ kind: 'success', message: 'Event tracked' });
         if (!realTime.isRealTimeEnabled) {
           loadData(appliedRange);
         }
@@ -393,7 +411,19 @@ function App() {
     >
       {toast ? (
         <div className="fixed top-4 right-4 z-60">
-          <div className="rounded-xl border border-gray-200 bg-white shadow-lg px-3 py-2 text-sm text-gray-900">{toast}</div>
+          <div
+            className={
+              'rounded-xl border bg-white shadow-lg px-3 py-2 ' +
+              (toast.kind === 'error'
+                ? 'border-red-200'
+                : toast.kind === 'success'
+                  ? 'border-emerald-200'
+                  : 'border-gray-200')
+            }
+          >
+            {toast.title ? <div className="text-sm font-semibold text-gray-900">{toast.title}</div> : null}
+            <div className="text-sm text-gray-900">{toast.message}</div>
+          </div>
         </div>
       ) : null}
 
@@ -531,9 +561,9 @@ function App() {
                           : `await fetch("${apiUrl}/track", {\n  method: "POST",\n  headers: {\n    "x-api-key": "<YOUR_API_KEY>",\n    "Content-Type": "application/json",\n  },\n  body: JSON.stringify({ event: "signup_completed", useRedis: false }),\n});`;
                       try {
                         await navigator.clipboard.writeText(text);
-                        setToast('Copied snippet');
+                        setToast({ kind: 'success', message: 'Copied snippet' });
                       } catch {
-                        setToast('Copy failed (clipboard blocked)');
+                        setToast({ kind: 'error', message: 'Copy failed (clipboard blocked)' });
                       }
                     }}
                   >

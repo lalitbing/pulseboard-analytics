@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getWorkerStatus, trackEvent } from '../api/analytics';
+import type { ToastInput } from '../lib/toastBus';
 
 const parseProperties = (
   raw: string
@@ -23,7 +24,7 @@ export default function EventTracker({
   onToast,
 }: {
   onTracked?: () => void;
-  onToast?: (message: string) => void;
+  onToast?: (toast: ToastInput) => void;
 }) {
   const [eventName, setEventName] = useState('');
   const [propertiesText, setPropertiesText] = useState('');
