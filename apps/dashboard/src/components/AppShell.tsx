@@ -170,6 +170,26 @@ export default function AppShell({
         className="pointer-events-none fixed inset-0 opacity-[0.08] bg-[radial-gradient(#000_1px,transparent_1px)] bg-size-[18px_18px]"
       />
 
+      <div className="relative z-[60] border-b border-yellow-300 bg-yellow-100/90">
+        <div className="mx-auto flex max-w-7xl items-center justify-center gap-2 px-4 py-2 text-center text-xs text-yellow-900 sm:text-sm">
+          <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded bg-amber-500 text-[10px] font-bold text-white">
+            !
+          </span>
+          <p className="leading-5">
+            <strong>We are investigating technical difficulties with Supabase in India.</strong>
+            <span className="mx-2 text-yellow-700">•</span>
+            <a
+              href="https://status.supabase.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium underline decoration-yellow-700 underline-offset-2 hover:text-yellow-950"
+            >
+              Follow the status page for updates
+            </a>
+          </p>
+        </div>
+      </div>
+
       {/* Mobile Header */}
       <div className="lg:hidden sticky top-0 z-50 bg-white/80 backdrop-blur border-b border-gray-200/70 shadow-sm">
         <div className="flex items-center justify-between px-4 py-3">
@@ -444,4 +464,3 @@ export default function AppShell({
     </div>
   );
 }
-
