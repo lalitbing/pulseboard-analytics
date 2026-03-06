@@ -1,18 +1,16 @@
 import { saveEvent } from "./db"
 import Redis from "ioredis"
+import { getRedisHostSafe, getRedisUrl } from "./redisConfig"
 
 let _consumerRedis: Redis | null = null
 let _heartbeatRedis: Redis | null = null
 
 function createRedis(url: string) {
   const useTls = url.startsWith("rediss://")
-  return new Redis(url, useTls ? { tls: {} } : {})
-}
-
-function getRedisUrl() {
-  const url = process.env.REDIS_URL
-  if (!url) throw new Error("REDIS_URL is not set")
-  return url
+  return new Redis(url, {
+    maxRetriesPerRequest: null,
+    ...(useTls ? { tls: {} } : {}),
+  })
 }
 
 // IMPORTANT: use separate connections. BRPOP blocks a connection, preventing
@@ -20,12 +18,18 @@ function getRedisUrl() {
 function getConsumerRedis() {
   if (_consumerRedis) return _consumerRedis
   _consumerRedis = createRedis(getRedisUrl())
+  _consumerRedis.on("error", (err: Error) => {
+    console.error("Redis consumer connection error:", err.message)
+  })
   return _consumerRedis
 }
 
 function getHeartbeatRedis() {
   if (_heartbeatRedis) return _heartbeatRedis
   _heartbeatRedis = createRedis(getRedisUrl())
+  _heartbeatRedis.on("error", (err: Error) => {
+    console.error("Redis heartbeat connection error:", err.message)
+  })
   return _heartbeatRedis
 }
 
@@ -53,17 +57,28 @@ const startHeartbeat = () => {
 }
   
 export const consume = async () => {
+  const redisUrl = getRedisUrl()
+  console.log(`🔌 Worker Redis target: ${getRedisHostSafe(redisUrl)}`)
+
   startHeartbeat()
   while (true) {
-    const data = await getConsumerRedis().brpop("events", 0);
-    if (!data) continue;
-  
+    let data: [string, string] | null = null
     try {
-      const payload = JSON.parse(data[1]);
-      await saveEvent(payload);
+      data = await getConsumerRedis().brpop("events", 0)
     } catch (err) {
-      console.error("❌ Failed to process event:", data[1], err);
-      // DO NOT crash the worker
+      // Keep worker alive through transient Redis/network issues.
+      console.error("❌ Worker Redis read error:", err)
+      await new Promise((resolve) => setTimeout(resolve, 2000))
+      continue
+    }
+
+    if (!data) continue
+
+    try {
+      const payload = JSON.parse(data[1])
+      await saveEvent(payload)
+    } catch (err) {
+      console.error("❌ Failed to process event:", data[1], err)
     }
   }
   

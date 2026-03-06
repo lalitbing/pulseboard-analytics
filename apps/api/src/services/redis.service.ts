@@ -1,4 +1,5 @@
 import Redis from "ioredis"
+import { getRedisUrl } from "./redisConfig"
 
 let _redis: Redis | null = null
 
@@ -10,11 +11,7 @@ function createRedisClient(url: string) {
 
 export function getRedis() {
   if (_redis) return _redis
-  const url = process.env.REDIS_URL
-  if (!url) {
-    throw new Error("REDIS_URL is not set")
-  }
-  _redis = createRedisClient(url)
+  _redis = createRedisClient(getRedisUrl())
   return _redis
 }
 

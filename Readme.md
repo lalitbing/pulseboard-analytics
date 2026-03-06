@@ -183,6 +183,11 @@ REDIS_URL=
 PORT=8080
 ```
 
+Redis env notes:
+- Use a **TCP URL**: `rediss://default:<password>@<host>:6379` (or `redis://` locally).
+- Do **not** set `REDIS_URL` to `UPSTASH_REDIS_REST_URL` (that is HTTP, not Redis TCP).
+- The services also accept `UPSTASH_REDIS_URL`, or `UPSTASH_REDIS_HOST` + `UPSTASH_REDIS_PASSWORD`.
+
 Health check: `http://localhost:8080/api/health`
 
 #### 2) Worker (required for Redis ingestion)
@@ -293,6 +298,8 @@ This prevents pushing events into Redis when nothing is consuming them.
 ### Why is “Use Redis” disabled and showing “Redis worker inactive”?
 
 The UI disables Redis ingestion when it can’t confirm the worker heartbeat in Redis. Start the worker (`apps/worker`) and ensure it has access to the same `REDIS_URL` as the API.
+
+If you recently switched Upstash accounts, confirm both services are using the new TCP endpoint (`REDIS_URL` / `UPSTASH_REDIS_URL`) and not a stale host or REST URL.
 
 ### I’m getting 401/403 from the API
 

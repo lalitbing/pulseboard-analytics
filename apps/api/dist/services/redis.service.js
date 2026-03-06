@@ -7,6 +7,7 @@ exports.WORKER_HEARTBEAT_KEY = exports.pushToQueue = void 0;
 exports.getRedis = getRedis;
 exports.getWorkerHeartbeatStatus = getWorkerHeartbeatStatus;
 const ioredis_1 = __importDefault(require("ioredis"));
+const redisConfig_1 = require("./redisConfig");
 let _redis = null;
 function createRedisClient(url) {
     // Upstash uses TLS via `rediss://...`; local Redis often uses `redis://...` (no TLS).
@@ -16,11 +17,7 @@ function createRedisClient(url) {
 function getRedis() {
     if (_redis)
         return _redis;
-    const url = process.env.REDIS_URL;
-    if (!url) {
-        throw new Error("REDIS_URL is not set");
-    }
-    _redis = createRedisClient(url);
+    _redis = createRedisClient((0, redisConfig_1.getRedisUrl)());
     return _redis;
 }
 const pushToQueue = async (data) => {

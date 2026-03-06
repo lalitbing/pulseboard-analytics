@@ -6,30 +6,34 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.consume = void 0;
 const db_1 = require("./db");
 const ioredis_1 = __importDefault(require("ioredis"));
+const redisConfig_1 = require("./redisConfig");
 let _consumerRedis = null;
 let _heartbeatRedis = null;
 function createRedis(url) {
     const useTls = url.startsWith("rediss://");
-    return new ioredis_1.default(url, useTls ? { tls: {} } : {});
-}
-function getRedisUrl() {
-    const url = process.env.REDIS_URL;
-    if (!url)
-        throw new Error("REDIS_URL is not set");
-    return url;
+    return new ioredis_1.default(url, {
+        maxRetriesPerRequest: null,
+        ...(useTls ? { tls: {} } : {}),
+    });
 }
 // IMPORTANT: use separate connections. BRPOP blocks a connection, preventing
 // other commands (like heartbeat SET) from executing on that same socket.
 function getConsumerRedis() {
     if (_consumerRedis)
         return _consumerRedis;
-    _consumerRedis = createRedis(getRedisUrl());
+    _consumerRedis = createRedis((0, redisConfig_1.getRedisUrl)());
+    _consumerRedis.on("error", (err) => {
+        console.error("Redis consumer connection error:", err.message);
+    });
     return _consumerRedis;
 }
 function getHeartbeatRedis() {
     if (_heartbeatRedis)
         return _heartbeatRedis;
-    _heartbeatRedis = createRedis(getRedisUrl());
+    _heartbeatRedis = createRedis((0, redisConfig_1.getRedisUrl)());
+    _heartbeatRedis.on("error", (err) => {
+        console.error("Redis heartbeat connection error:", err.message);
+    });
     return _heartbeatRedis;
 }
 const WORKER_HEARTBEAT_KEY = "pulseboard:worker:heartbeat";
@@ -53,9 +57,20 @@ const startHeartbeat = () => {
     }, WORKER_HEARTBEAT_INTERVAL_MS);
 };
 const consume = async () => {
+    const redisUrl = (0, redisConfig_1.getRedisUrl)();
+    console.log(`🔌 Worker Redis target: ${(0, redisConfig_1.getRedisHostSafe)(redisUrl)}`);
     startHeartbeat();
     while (true) {
-        const data = await getConsumerRedis().brpop("events", 0);
+        let data = null;
+        try {
+            data = await getConsumerRedis().brpop("events", 0);
+        }
+        catch (err) {
+            // Keep worker alive through transient Redis/network issues.
+            console.error("❌ Worker Redis read error:", err);
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+            continue;
+        }
         if (!data)
             continue;
         try {
@@ -64,7 +79,6 @@ const consume = async () => {
         }
         catch (err) {
             console.error("❌ Failed to process event:", data[1], err);
-            // DO NOT crash the worker
         }
     }
 };
