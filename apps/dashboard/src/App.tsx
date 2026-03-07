@@ -69,13 +69,13 @@ function App() {
 
   const makeDefaultRange = () => {
     const to = safeIsoDate(new Date());
-    const from = safeIsoDate(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000));
+    const from = '2026-01-01';
     return { from, to };
   };
 
   const [appliedRange, setAppliedRange] = useState(makeDefaultRange);
   const [draftRange, setDraftRange] = useState(makeDefaultRange);
-  const [activePreset, setActivePreset] = useState<DatePreset>('7d');
+  const [activePreset, setActivePreset] = useState<DatePreset>('all');
   const [customOpen, setCustomOpen] = useState(false);
 
   const handleRangeChange = (key: 'from' | 'to', value: string) => {
@@ -210,11 +210,9 @@ function App() {
 
     const to = isoDate(new Date());
     const from =
-      preset === 'today'
-        ? to
-        : preset === '7d'
+      preset === '7d'
         ? isoDate(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000))
-        : isoDate(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000));
+        : '2026-01-01';
 
     applyRange({ from, to });
   };

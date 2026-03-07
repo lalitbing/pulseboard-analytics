@@ -1,6 +1,6 @@
 type RangeKey = 'from' | 'to';
 
-export type DatePreset = 'today' | '7d' | '30d' | 'custom';
+export type DatePreset = 'all' | '7d' | 'custom';
 
 type DateFilterProps = {
   range: {
@@ -38,14 +38,11 @@ export default function DateFilter({
     <div className="flex flex-col items-stretch gap-2">
       <div className="flex flex-row sm:items-center sm:justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
-          <button type="button" className={pillClass(activePreset === 'today')} onClick={() => onPresetClick('today')}>
-            Today
+          <button type="button" className={pillClass(activePreset === 'all')} onClick={() => onPresetClick('all')}>
+            All
           </button>
           <button type="button" className={pillClass(activePreset === '7d')} onClick={() => onPresetClick('7d')}>
             7D
-          </button>
-          <button type="button" className={pillClass(activePreset === '30d')} onClick={() => onPresetClick('30d')}>
-            30D
           </button>
           <button type="button" className={pillClass(activePreset === 'custom')} onClick={onCustomOpen}>
             Custom
