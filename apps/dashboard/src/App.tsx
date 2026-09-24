@@ -339,7 +339,7 @@ function App() {
                   {liveProblem === null && summary !== undefined && (
                     <span
                       className="text-[11px] rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 px-2 py-0.5 flex items-center gap-1"
-                      title="Real-time mode active"
+                      title="Live updates active"
                     >
                       <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
                       Live
