@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { getTopEvents } from './api/analytics';
+import { useQuery } from 'convex/react';
+import { api } from '../convex/_generated/api';
+import { getEvents, getProjectInfo, getSummary, type Range } from './api/analytics';
+import { API_KEY, API_URL, isConvexConfigured } from './lib/convex';
 import EventsChart from './components/EventsChart';
 import TopEvents from './components/TopEvents';
 import KPI from './components/KPI';
@@ -7,9 +10,8 @@ import Card from './components/Card';
 import DateFilter, { type DatePreset } from './components/DateFilter';
 import AppShell from './components/AppShell';
 import EventsView from './components/EventsView';
-import { useRealTime } from './contexts/RealTimeContext';
 import IntegrationView from './components/IntegrationView';
-import { emitToast, subscribeToast, type ToastInput, type ToastPayload } from './lib/toastBus';
+import { subscribeToast, type ToastInput, type ToastPayload } from './lib/toastBus';
 
 type EventRow = {
   created_at: string;
@@ -20,6 +22,15 @@ type TopEventRow = {
   event_name: string;
   count: number;
   last_seen: string;
+};
+
+type RealTimeStatus = 'disabled' | 'missing_config' | 'missing_project' | 'connecting' | 'subscribed' | 'error';
+
+type Summary = {
+  total: number;
+  daily: { date: string; count: number }[];
+  top: TopEventRow[];
+  recent: EventRow[];
 };
 
 function safeIsoDate(d: Date) {
@@ -52,12 +63,12 @@ function downloadCsv(filename: string, header: string[], rows: (string | number)
 }
 
 function App() {
-  const realTime = useRealTime();
+  const [summary, setSummary] = useState<Summary | null>(null);
   const [events, setEvents] = useState<EventRow[]>([]);
-  const [top, setTop] = useState<TopEventRow[]>([]);
+  const [loadingSummary, setLoadingSummary] = useState(true);
   const [loadingEvents, setLoadingEvents] = useState(true);
-  const [loadingTop, setLoadingTop] = useState(true);
-  const didInitialLoad = useRef(false);
+  const [realTimeEnabled, setRealTimeEnabled] = useState(false);
+  const [projectError, setProjectError] = useState<string | null>(null);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
   const exportRef = useRef<HTMLDivElement | null>(null);
@@ -78,6 +89,12 @@ function App() {
   const [activePreset, setActivePreset] = useState<DatePreset>('all');
   const [customOpen, setCustomOpen] = useState(false);
 
+  // Real-time mode: subscribe to the same Convex queries; they re-run whenever events land.
+  const live = realTimeEnabled && isConvexConfigured && !projectError;
+  const liveArgs = { apiKey: API_KEY, ...appliedRange };
+  const liveSummary = useQuery(api.stats.summary, live ? liveArgs : 'skip');
+  const liveEvents = useQuery(api.stats.events, live && page === 'Events' ? liveArgs : 'skip');
+
   const handleRangeChange = (key: 'from' | 'to', value: string) => {
     setDraftRange((prev) => ({
       ...prev,
@@ -85,79 +102,66 @@ function App() {
     }));
   };
 
-  const loadData = async (currentRange: { from: string; to: string }, opts?: { force?: boolean }) => {
-    // If real-time is enabled, don't load via REST API unless forced
-    if (realTime.isRealTimeEnabled && !opts?.force) return;
-
-    setLoadingEvents(true);
-    setLoadingTop(true);
-
+  const loadSummary = async (currentRange: Range) => {
+    if (!isConvexConfigured) {
+      setLoadingSummary(false);
+      return;
+    }
+    setLoadingSummary(true);
     try {
-      const topData = await getTopEvents(currentRange);
-      setTop(topData?.top || []);
-      setEvents(topData?.events || []);
+      setSummary(await getSummary(currentRange));
       setLastUpdatedAt(new Date());
+    } catch (err) {
+      console.error('Failed to load summary:', err);
+      setToast({ kind: 'error', message: 'Failed to load stats' });
     } finally {
-      setLoadingEvents(false);
-      setLoadingTop(false);
+      setLoadingSummary(false);
     }
   };
 
-  // Fetch project ID on mount
+  const loadEvents = async (currentRange: Range) => {
+    if (!isConvexConfigured) {
+      setLoadingEvents(false);
+      return;
+    }
+    setLoadingEvents(true);
+    try {
+      setEvents(await getEvents(currentRange));
+    } catch (err) {
+      console.error('Failed to load events:', err);
+      setToast({ kind: 'error', message: 'Failed to load events' });
+    } finally {
+      setLoadingEvents(false);
+    }
+  };
+
+  // Validate the API key once so a bad key shows a clear status instead of failing silently.
   useEffect(() => {
-    const fetchProjectId = async () => {
-      const apiKey = import.meta.env.VITE_API_KEY;
-      if (!apiKey) {
-        console.warn('No API key provided, real-time mode will not work');
-        return;
-      }
-
-      try {
-        let slowTimer: number | null = null;
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
-        const isOnRenderApi = /onrender/i.test(apiUrl);
-        if (import.meta.env.PROD && isOnRenderApi) {
-          slowTimer = window.setTimeout(() => {
-            emitToast({
-              kind: 'error',
-              title: 'Server waking up…',
-              message: 'Our API may be asleep due to inactivity (onRender). It usually cold starts ~1min. Please wait.',
-              ttlMs: 8000,
-            });
-          }, 10_000);
-        }
-
-        const response = await fetch(`${apiUrl}/project-info`, {
-          headers: {
-            'x-api-key': apiKey,
-          },
-        });
-        if (slowTimer) window.clearTimeout(slowTimer);
-
-        if (response.ok) {
-          const data = await response.json();
-          realTime.setProjectId(data.project_id || data.id);
-        }
-      } catch (error) {
-        console.error('Failed to fetch project ID:', error);
-      }
-    };
-
-    fetchProjectId();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (!isConvexConfigured) return;
+    getProjectInfo().catch((err) => {
+      console.error('Project lookup failed:', err);
+      setProjectError('Invalid API key (project lookup failed)');
+    });
   }, []);
 
   useEffect(() => {
     return subscribeToast((t) => setToast(t));
   }, []);
 
+  // One-shot loads when Real-time mode is off.
   useEffect(() => {
-    // In dev, React StrictMode runs effects twice; guard to avoid duplicate API calls.
-    if (didInitialLoad.current) return;
-    didInitialLoad.current = true;
-    loadData(appliedRange);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (realTimeEnabled) return;
+    void loadSummary(appliedRange);
+  }, [realTimeEnabled, appliedRange]);
+
+  useEffect(() => {
+    if (realTimeEnabled || page !== 'Events') return;
+    void loadEvents(appliedRange);
+  }, [realTimeEnabled, appliedRange, page]);
+
+  useEffect(() => {
+    if (liveSummary) setLastUpdatedAt(new Date());
+  }, [liveSummary]);
 
   useEffect(() => {
     if (!exportOpen) return;
@@ -188,15 +192,9 @@ function App() {
     return () => window.clearTimeout(t);
   }, [toast]);
 
-  const applyRange = (next: { from: string; to: string }) => {
+  const applyRange = (next: Range) => {
     setDraftRange(next);
     setAppliedRange(next);
-    
-    // Update real-time context date range
-    realTime.setDateRange(next);
-    
-    // Load data via REST API if not in real-time mode
-    loadData(next);
   };
 
   const isoDate = (d: Date) => d.toISOString().split('T')[0];
@@ -226,12 +224,6 @@ function App() {
     setAppliedRange(draftRange);
     setActivePreset('custom');
     setCustomOpen(true);
-    
-    // Update real-time context date range
-    realTime.setDateRange(draftRange);
-    
-    // Load data via REST API if not in real-time mode
-    loadData(draftRange);
   };
 
   const formatRangeLabel = (from: string, to: string) => {
@@ -264,57 +256,67 @@ function App() {
     return `Stats from ${formatDate(from)} to ${formatDate(to)}`;
   };
 
-  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
-  const apiKeyPresent = Boolean(import.meta.env.VITE_API_KEY);
+  const apiUrl = API_URL;
+  const apiKeyPresent = Boolean(API_KEY);
 
-  // Use real-time data if enabled, otherwise use REST data
-  const displayEvents = realTime.isRealTimeEnabled ? realTime.events : events;
-  const displayTop = realTime.isRealTimeEnabled ? realTime.topEvents : top;
-  const displayLoading = realTime.isRealTimeEnabled ? realTime.loading : loadingEvents;
-  const displayTopLoading = realTime.isRealTimeEnabled ? realTime.loading : loadingTop;
+  // Use the live subscription when Real-time mode is on, otherwise the one-shot results
+  const displaySummary = live ? liveSummary ?? null : summary;
+  const displayEvents = live ? liveEvents ?? [] : events;
+  const displayLoading = live ? liveSummary === undefined : loadingSummary;
+  const displayEventsLoading = live ? liveEvents === undefined : loadingEvents;
+  const displayTop = displaySummary?.top ?? [];
+  const daily = displaySummary?.daily ?? [];
+  const totalEvents = displaySummary?.total ?? 0;
+
+  const realTimeStatus: RealTimeStatus = !realTimeEnabled
+    ? 'disabled'
+    : !isConvexConfigured
+      ? 'missing_config'
+      : projectError
+        ? 'missing_project'
+        : liveSummary === undefined
+          ? 'connecting'
+          : 'subscribed';
+  const realTimeError = !realTimeEnabled
+    ? null
+    : !isConvexConfigured
+      ? 'Missing VITE_CONVEX_URL / VITE_API_KEY'
+      : projectError;
 
   const todayIso = safeIsoDate(new Date());
-  const activeDays = new Set(displayEvents.map((e) => e.created_at.split('T')[0]));
-  const uniqueEvents = new Set(displayEvents.map((e) => e.event_name)).size;
-  const todayCount = displayEvents.filter((e) => e.created_at.startsWith(todayIso)).length;
+  const activeDays = daily.length;
+  const uniqueEvents = displayTop.length;
+  const todayCount = daily.find((d) => d.date === todayIso)?.count ?? 0;
 
-  const dailyCounts = displayEvents.reduce<Record<string, number>>((acc, e) => {
-    const d = e.created_at.split('T')[0];
-    acc[d] = (acc[d] || 0) + 1;
-    return acc;
-  }, {});
-
-  const peak = Object.entries(dailyCounts).reduce<{ date: string; count: number } | null>((best, [date, count]) => {
-    if (!best || count > best.count) return { date, count };
+  const peak = daily.reduce<{ date: string; count: number } | null>((best, d) => {
+    if (!best || d.count > best.count) return d;
     return best;
   }, null);
 
-  const avgPerActiveDay = activeDays.size ? Math.round((displayEvents.length / activeDays.size) * 10) / 10 : 0;
+  const avgPerActiveDay = activeDays ? Math.round((totalEvents / activeDays) * 10) / 10 : 0;
 
-  const recentEvents = [...displayEvents].sort((a, b) => (a.created_at < b.created_at ? 1 : -1)).slice(0, 8);
+  const recentEvents = displaySummary?.recent ?? [];
 
   const handleRealTimeToggle = (enabled: boolean) => {
-    if (enabled && !realTime.isConfigured) {
-      setToast({ kind: 'error', message: 'Real-time unavailable: missing Supabase env' });
+    if (enabled && !isConvexConfigured) {
+      setToast({ kind: 'error', message: 'Real-time unavailable: missing Convex env' });
       return;
     }
-    realTime.setRealTimeEnabled(enabled);
-    if (enabled) {
-      // When enabling real-time, set the date range
-      realTime.setDateRange(appliedRange);
-      setLastUpdatedAt(new Date());
-    } else {
-      // When disabling real-time, reload data via REST API
-      loadData(appliedRange, { force: true });
-    }
+    setRealTimeEnabled(enabled);
   };
 
-  // Update last updated time when real-time events change
-  useEffect(() => {
-    if (realTime.isRealTimeEnabled && realTime.events.length > 0) {
-      setLastUpdatedAt(new Date());
+  const exportEventsCsv = async () => {
+    try {
+      const rows = live && liveEvents ? liveEvents : await getEvents(appliedRange);
+      downloadCsv(
+        `events_${appliedRange.from}_to_${appliedRange.to}.csv`,
+        ['event_name', 'created_at'],
+        rows.map((e) => [e.event_name, e.created_at])
+      );
+    } catch {
+      setToast({ kind: 'error', message: 'Export failed' });
     }
-  }, [realTime.isRealTimeEnabled, realTime.events.length]);
+  };
 
   return (
     <AppShell
@@ -325,14 +327,16 @@ function App() {
       onToast={(t: ToastInput) => setToast(typeof t === 'string' ? { message: t } : t)}
       onEventTracked={() => {
         setToast({ kind: 'success', message: 'Event tracked' });
-        if (!realTime.isRealTimeEnabled) {
-          loadData(appliedRange);
+        // Real-time mode picks the new event up on its own.
+        if (!realTimeEnabled) {
+          void loadSummary(appliedRange);
+          if (page === 'Events') void loadEvents(appliedRange);
         }
       }}
-      realTimeEnabled={realTime.isRealTimeEnabled}
+      realTimeEnabled={realTimeEnabled}
       onRealTimeToggle={handleRealTimeToggle}
-      realTimeStatus={realTime.status}
-      realTimeError={realTime.error}
+      realTimeStatus={realTimeStatus}
+      realTimeError={realTimeError}
       right={
         showDateFilter ? (
         <div className="w-full">
@@ -377,11 +381,7 @@ function App() {
                       className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 cursor-pointer transition"
                       onClick={() => {
                         setExportOpen(false);
-                        downloadCsv(
-                          `events_${appliedRange.from}_to_${appliedRange.to}.csv`,
-                          ['event_name', 'created_at'],
-                          displayEvents.map((e) => [e.event_name, e.created_at])
-                        );
+                        void exportEventsCsv();
                       }}
                     >
                       Events CSV
@@ -432,7 +432,7 @@ function App() {
           <div className="xl:col-span-2 space-y-6">
             {/* KPI row */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <KPI label="Total events" value={displayEvents.length} loading={displayLoading} hint="All tracked events" />
+              <KPI label="Total events" value={totalEvents} loading={displayLoading} hint="All tracked events" />
               <KPI label="Unique events" value={uniqueEvents} loading={displayLoading} hint="Distinct names" />
               <KPI label="Avg / active day" value={avgPerActiveDay} loading={displayLoading} hint="Smoothed" />
               <KPI
@@ -450,7 +450,7 @@ function App() {
               subtitle={lastUpdatedAt ? `Last updated ${lastUpdatedAt.toLocaleTimeString()}` : ' '}
               actions={
                 <div className="flex flex-wrap items-center gap-2 min-w-0">
-                  {realTime.isRealTimeEnabled && (
+                  {live && (
                     <span
                       className="text-[11px] rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 px-2 py-0.5 flex items-center gap-1"
                       title="Real-time mode active"
@@ -477,7 +477,7 @@ function App() {
                 </div>
               }
             >
-              <EventsChart data={displayEvents} loading={displayLoading} />
+              <EventsChart data={daily} loading={displayLoading} />
             </Card>
 
             {/* Recent activity */}
@@ -506,7 +506,7 @@ function App() {
           {/* Right rail */}
           <div className="space-y-6">
             <Card title="Top events" subtitle="Most frequent">
-              <TopEvents data={displayTop} loading={displayTopLoading} />
+              <TopEvents data={displayTop} loading={displayLoading} />
             </Card>
 
             <Card title="Today" subtitle="Quick snapshot">
@@ -520,7 +520,7 @@ function App() {
                   </div>
                   <div className="text-right">
                     <p className="text-xs text-gray-600">Active days</p>
-                    <p className="text-sm font-semibold text-gray-900">{activeDays.size}</p>
+                    <p className="text-sm font-semibold text-gray-900">{activeDays}</p>
                   </div>
                 </div>
               )}
@@ -560,8 +560,8 @@ function App() {
                     onClick={async () => {
                       const text =
                         snippetTab === 'curl'
-                          ? `curl -X POST "${apiUrl}/track" \\\n  -H "x-api-key: <YOUR_API_KEY>" \\\n  -H "Content-Type: application/json" \\\n  -d '{"event":"signup_completed","useRedis":false}'`
-                          : `await fetch("${apiUrl}/track", {\n  method: "POST",\n  headers: {\n    "x-api-key": "<YOUR_API_KEY>",\n    "Content-Type": "application/json",\n  },\n  body: JSON.stringify({ event: "signup_completed", useRedis: false }),\n});`;
+                          ? `curl -X POST "${apiUrl}/track" \\\n  -H "x-api-key: <YOUR_API_KEY>" \\\n  -H "Content-Type: application/json" \\\n  -d '{"event":"signup_completed","queued":false}'`
+                          : `await fetch("${apiUrl}/track", {\n  method: "POST",\n  headers: {\n    "x-api-key": "<YOUR_API_KEY>",\n    "Content-Type": "application/json",\n  },\n  body: JSON.stringify({ event: "signup_completed", queued: false }),\n});`;
                       try {
                         await navigator.clipboard.writeText(text);
                         setToast({ kind: 'success', message: 'Copied snippet' });
@@ -577,8 +577,8 @@ function App() {
 
               <pre className="mt-3 overflow-auto rounded-xl border border-gray-100 bg-gray-50 p-3 text-[12px] leading-5 text-gray-900">
                 {snippetTab === 'curl'
-                  ? `curl -X POST "${apiUrl}/track" \\\n  -H "x-api-key: <YOUR_API_KEY>" \\\n  -H "Content-Type: application/json" \\\n  -d '{"event":"signup_completed","useRedis":false}'`
-                  : `await fetch("${apiUrl}/track", {\n  method: "POST",\n  headers: {\n    "x-api-key": "<YOUR_API_KEY>",\n    "Content-Type": "application/json",\n  },\n  body: JSON.stringify({ event: "signup_completed", useRedis: false }),\n});`}
+                  ? `curl -X POST "${apiUrl}/track" \\\n  -H "x-api-key: <YOUR_API_KEY>" \\\n  -H "Content-Type: application/json" \\\n  -d '{"event":"signup_completed","queued":false}'`
+                  : `await fetch("${apiUrl}/track", {\n  method: "POST",\n  headers: {\n    "x-api-key": "<YOUR_API_KEY>",\n    "Content-Type": "application/json",\n  },\n  body: JSON.stringify({ event: "signup_completed", queued: false }),\n});`}
               </pre>
 
               {!apiKeyPresent ? (
@@ -590,7 +590,7 @@ function App() {
           </div>
         </div>
       ) : page === 'Events' ? (
-        <EventsView events={displayEvents} loading={displayLoading} selectedEventName={selectedEventName} onClearSelected={() => {}} />
+        <EventsView events={displayEvents} loading={displayEventsLoading} selectedEventName={selectedEventName} onClearSelected={() => {}} />
       ) : (
         <IntegrationView apiUrl={apiUrl} apiKeyPresent={apiKeyPresent} />
       )}

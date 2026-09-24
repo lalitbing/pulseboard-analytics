@@ -131,7 +131,7 @@ export default function AppShell({
     'Use the date filter to quickly narrow down spikes—start with the last 24h when debugging.',
     'Turn on Real-time mode while validating instrumentation, then switch it off for larger date ranges.',
     'Add consistent properties (e.g., userId, plan, source) to make filtering and segmentation much more powerful.',
-    'If you use Redis ingestion, keep the worker running so queued events flush into storage.',
+    'Queued tracking hands events to the Convex scheduler, so the request returns before the write lands.',
   ] as const;
 
   useEffect(() => {
@@ -282,7 +282,7 @@ export default function AppShell({
                       ) : realTimeStatus === 'missing_config' ? (
                         <div className="flex items-center gap-1">
                           <div className="h-2 w-2 rounded-full bg-amber-500" />
-                          <span className="text-[10px] text-amber-700 font-medium">Missing Supabase env</span>
+                          <span className="text-[10px] text-amber-700 font-medium">Missing Convex env</span>
                         </div>
                       ) : realTimeStatus === 'missing_project' ? (
                         <div className="flex items-center gap-1">
@@ -384,7 +384,7 @@ export default function AppShell({
                       ) : realTimeStatus === 'missing_config' ? (
                         <div className="flex items-center gap-1">
                           <div className="h-2 w-2 rounded-full bg-amber-500" />
-                          <span className="text-[10px] text-amber-700 font-medium">Missing Supabase env</span>
+                          <span className="text-[10px] text-amber-700 font-medium">Missing Convex env</span>
                         </div>
                       ) : realTimeStatus === 'missing_project' ? (
                         <div className="flex items-center gap-1">

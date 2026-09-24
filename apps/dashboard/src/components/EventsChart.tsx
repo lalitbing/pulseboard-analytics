@@ -9,7 +9,7 @@ import {
   YAxis,
 } from 'recharts';
 
-export default function EventsChart({ data, loading }: { data: any[]; loading?: boolean }) {
+export default function EventsChart({ data, loading }: { data: { date: string; count: number }[]; loading?: boolean }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerSize, setContainerSize] = useState<{ width: number; height: number } | null>(null);
 
@@ -66,15 +66,8 @@ export default function EventsChart({ data, loading }: { data: any[]; loading?: 
     );
   }
 
-  const daily = data.reduce((acc: any, e: any) => {
-    const d = e.created_at.split('T')[0];
-    acc[d] = (acc[d] || 0) + 1;
-    return acc;
-  }, {});
-
-  const chartData = Object.entries(daily)
-    .map(([date, count]) => ({ date, count }))
-    .sort((a, b) => (a.date < b.date ? -1 : 1));
+  // Already bucketed per UTC day by the backend
+  const chartData = data;
 
   const fmt = (iso: string) => {
     const d = new Date(iso);

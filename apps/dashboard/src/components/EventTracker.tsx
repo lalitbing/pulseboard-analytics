@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { getWorkerStatus, trackEvent } from '../api/analytics';
+import { useState } from 'react';
+import { trackEvent } from '../api/analytics';
 import type { ToastInput } from '../lib/toastBus';
 
 const parseProperties = (
@@ -30,60 +30,9 @@ export default function EventTracker({
   const [propertiesText, setPropertiesText] = useState('');
   const [propertiesError, setPropertiesError] = useState<string | null>(null);
   const [isTracking, setIsTracking] = useState(false);
-  const [useRedis, setUseRedis] = useState(false);
+  const [queued, setQueued] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [workerActive, setWorkerActive] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    if (!isOpen) return;
-
-    let disposed = false;
-    let inFlight: AbortController | null = null;
-    let seq = 0;
-
-    // Show a "checking" state the moment the popup opens.
-    setWorkerActive(null);
-
-    const check = async () => {
-      if (disposed) return;
-      const requestId = ++seq;
-      // Abort any prior request to avoid race-y updates.
-      if (inFlight) inFlight.abort();
-      const ac = new AbortController();
-      inFlight = ac;
-
-      try {
-        const status = await getWorkerStatus(ac.signal);
-        if (disposed || ac.signal.aborted || requestId !== seq) return;
-        // If status is null (e.g. 304/no-body), keep prior UI state.
-        if (status && typeof status.active === 'boolean') {
-          setWorkerActive(status.active);
-          if (!status.active) {
-            // Prevent sending Redis ingestion when worker isn't consuming.
-            setUseRedis(false);
-          }
-        }
-      } catch {
-        if (disposed || ac.signal.aborted || requestId !== seq) return;
-        // Network/API errors during polling shouldn't flip to "inactive" and disable Redis.
-        // Keep the last known state and let the next poll recover.
-        setWorkerActive((prev) => prev);
-      }
-    };
-
-    void check();
-    const t = window.setInterval(() => {
-      void check();
-    }, 10000);
-
-    return () => {
-      disposed = true;
-      if (inFlight) inFlight.abort();
-      window.clearInterval(t);
-    };
-  }, [isOpen]);
-
   const submit = async () => {
     const normalized = eventName.replace(/[^a-zA-Z0-9_]/g, '').trim();
     if (!normalized) {
@@ -101,7 +50,7 @@ export default function EventTracker({
         return;
       }
 
-      await trackEvent(normalized, useRedis, parsed.value);
+      await trackEvent(normalized, queued, parsed.value);
       setIsTracking(false);
       setIsOpen(false);
       setEventName('');
@@ -164,34 +113,31 @@ export default function EventTracker({
               <div
                 className={
                   'rounded-lg border px-2 py-1 ' +
-                  (isTracking || workerActive !== true
+                  (isTracking
                     ? 'border-gray-200 bg-gray-50/80 text-gray-500 opacity-50'
                     : 'border-transparent')
                 }
               >
                 <div className="flex flex-col items-end">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs sm:text-sm text-gray-600">Use Redis</span>
+                    <span className="text-xs sm:text-sm text-gray-600" title="Write via the Convex scheduler (async queue) instead of inline">Queue (async)</span>
                     <label
                       className={
                         'relative inline-flex items-center ' +
-                        (isTracking || workerActive !== true ? 'cursor-not-allowed opacity-70' : 'cursor-pointer')
+                        (isTracking ? 'cursor-not-allowed opacity-70' : 'cursor-pointer')
                       }
                     >
                       <input
                         type="checkbox"
-                        checked={useRedis}
-                        onChange={(e) => setUseRedis(e.target.checked)}
-                        disabled={isTracking || workerActive !== true}
+                        checked={queued}
+                        onChange={(e) => setQueued(e.target.checked)}
+                        disabled={isTracking}
                         className="sr-only peer"
                       />
                       <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600" />
                     </label>
                   </div>
 
-                  {workerActive === false ? (
-                    <p className="mt-1 text-[11px] leading-3 text-gray-500 text-center w-full">Redis worker inactive</p>
-                  ) : null}
                 </div>
               </div>
             </div>

@@ -97,10 +97,13 @@ export default function IntegrationView({
   const trackCurl = `curl -X POST "${apiUrl}/track" \\
   -H "x-api-key: YOUR_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"event":"signup_completed","properties":{"plan":"pro"},"useRedis":false}'`;
+  -d '{"event":"signup_completed","properties":{"plan":"pro"},"queued":false}'`;
 
   const statsEndpoints = `GET /api/stats/events?from=YYYY-MM-DD&to=YYYY-MM-DD
-GET /api/stats/top-events`;
+GET /api/stats/top-events?from=YYYY-MM-DD&to=YYYY-MM-DD
+
+# /stats/events     → { total, daily: [{ date, count }] }
+# /stats/top-events → { total, top: [{ event_name, count, last_seen }] }`;
 
   const statsCurl = `curl -H "x-api-key: YOUR_API_KEY" "${apiUrl}/stats/events?from=YYYY-MM-DD&to=YYYY-MM-DD"
 curl -H "x-api-key: YOUR_API_KEY" "${apiUrl}/stats/top-events"`;
@@ -117,7 +120,7 @@ npm install file:../packages/sdk`;
 
 const analytics = new Analytics(
   "PROJECT_API_KEY",
-  "https://your-api-domain/api/track"
+  "${apiUrl}/track"
 );
 
 analytics.track("signup_completed", {
@@ -136,10 +139,10 @@ analytics.track("signup_completed", {
 
         <div className="mt-3 space-y-1 text-xs text-gray-600">
           <p>
-            <span className="font-semibold">useRedis: false</span> → direct insert into DB
+            <span className="font-semibold">queued: false</span> → written inline, before the response
           </p>
           <p>
-            <span className="font-semibold">useRedis: true</span> → queue to Redis (requires the worker)
+            <span className="font-semibold">queued: true</span> → handed to the Convex scheduler and written asynchronously
           </p>
         </div>
 
