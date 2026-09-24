@@ -3,6 +3,7 @@ import { useQuery } from 'convex/react';
 import { api } from '../convex/_generated/api';
 import { getEvents, getProjectInfo, getSummary, type Range } from './api/analytics';
 import { API_KEY, API_URL, isConvexConfigured } from './lib/convex';
+import { formatDayLabel, formatIstDateTime, istDate, REPORT_TIME_ZONE } from './lib/time';
 import EventsChart from './components/EventsChart';
 import TopEvents from './components/TopEvents';
 import KPI from './components/KPI';
@@ -33,14 +34,8 @@ type Summary = {
   recent: EventRow[];
 };
 
-function safeIsoDate(d: Date) {
-  return d.toISOString().split('T')[0];
-}
-
 function formatShortDate(iso: string) {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: '2-digit' });
+  return formatDayLabel(iso, { year: 'numeric', month: 'short', day: '2-digit' });
 }
 
 function downloadCsv(filename: string, header: string[], rows: (string | number)[][]) {
@@ -79,7 +74,7 @@ function App() {
   const showDateFilter = page !== 'Integration';
 
   const makeDefaultRange = () => {
-    const to = safeIsoDate(new Date());
+    const to = istDate(new Date());
     const from = '2026-01-01';
     return { from, to };
   };
@@ -197,8 +192,6 @@ function App() {
     setAppliedRange(next);
   };
 
-  const isoDate = (d: Date) => d.toISOString().split('T')[0];
-
   const applyPreset = (preset: Exclude<DatePreset, 'custom'>) => {
     // Clicking the already-active pill should do nothing.
     if (preset === activePreset && !customOpen) return;
@@ -206,10 +199,10 @@ function App() {
     setCustomOpen(false);
     setActivePreset(preset);
 
-    const to = isoDate(new Date());
+    const to = istDate(new Date());
     const from =
       preset === '7d'
-        ? isoDate(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000))
+        ? istDate(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000))
         : '2026-01-01';
 
     applyRange({ from, to });
@@ -283,7 +276,7 @@ function App() {
       ? 'Missing VITE_CONVEX_URL / VITE_API_KEY'
       : projectError;
 
-  const todayIso = safeIsoDate(new Date());
+  const todayIso = istDate(new Date());
   const activeDays = daily.length;
   const uniqueEvents = displayTop.length;
   const todayCount = daily.find((d) => d.date === todayIso)?.count ?? 0;
@@ -447,7 +440,7 @@ function App() {
             {/* Chart */}
             <Card
               title="Events over time"
-              subtitle={lastUpdatedAt ? `Last updated ${lastUpdatedAt.toLocaleTimeString()}` : ' '}
+              subtitle={lastUpdatedAt ? `Last updated ${lastUpdatedAt.toLocaleTimeString(undefined, { timeZone: REPORT_TIME_ZONE })} IST` : ' '}
               actions={
                 <div className="flex flex-wrap items-center gap-2 min-w-0">
                   {live && (
@@ -493,7 +486,7 @@ function App() {
                   {recentEvents.map((e) => (
                     <li key={`${e.created_at}-${e.event_name}`} className="flex items-center justify-between gap-3 px-3 py-2.5">
                       <p className="min-w-0 truncate text-sm font-medium text-gray-900">{e.event_name}</p>
-                      <p className="shrink-0 text-xs text-gray-600">{new Date(e.created_at).toLocaleString()}</p>
+                      <p className="shrink-0 text-xs text-gray-600">{formatIstDateTime(new Date(e.created_at))}</p>
                     </li>
                   ))}
                 </ul>

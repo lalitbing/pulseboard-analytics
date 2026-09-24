@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ConvexError } from 'convex/values';
 import { trackEvent } from '../api/analytics';
 import type { ToastInput } from '../lib/toastBus';
 
@@ -59,7 +60,13 @@ export default function EventTracker({
       onTracked?.();
     } catch (error) {
       console.error('Failed to track event:', error);
-      setError('Failed to track event. Please try again.');
+      const data = error instanceof ConvexError ? (error.data as { kind?: string; retryAfter?: number }) : null;
+      if (data?.kind === 'RateLimited') {
+        const seconds = Math.max(1, Math.ceil((data.retryAfter ?? 0) / 1000));
+        setError(`Rate limit reached. Try again in ${seconds}s.`);
+      } else {
+        setError('Failed to track event. Please try again.');
+      }
       setIsTracking(false);
     }
   };

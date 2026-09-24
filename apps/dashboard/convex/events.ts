@@ -2,7 +2,8 @@ import { ConvexError, v } from 'convex/values';
 import { internal } from './_generated/api';
 import type { Id } from './_generated/dataModel';
 import { internalMutation, mutation, type MutationCtx } from './_generated/server';
-import { MAX_BATCH_SIZE, requireProject, resolveCreatedAt, trackInput, utcDay, validateTrackInput, type TrackInput } from './lib';
+import { rateLimiter } from './rateLimits';
+import { MAX_BATCH_SIZE, requireProject, resolveCreatedAt, trackInput, reportDay, validateTrackInput, type TrackInput } from './lib';
 
 type Ingest = {
   projectId: Id<'projects'>;
@@ -16,7 +17,7 @@ type Ingest = {
 async function insertEvent(ctx: MutationCtx, e: Ingest) {
   await ctx.db.insert('events', e);
 
-  const day = utcDay(e.createdAt);
+  const day = reportDay(e.createdAt);
   const stat = await ctx.db
     .query('dailyStats')
     .withIndex('by_project_day_event', (q) => q.eq('projectId', e.projectId).eq('day', day).eq('eventName', e.eventName))
@@ -51,6 +52,7 @@ export async function recordEvents(ctx: MutationCtx, projectId: Id<'projects'>, 
     const err = validateTrackInput(e);
     if (err) throw new ConvexError(err);
   }
+  await rateLimiter.limit(ctx, 'trackEvents', { key: projectId, count: events.length, throws: true });
 
   const now = Date.now();
   for (const e of events) {
@@ -85,5 +87,34 @@ export const track = mutation({
     const project = await requireProject(ctx, apiKey);
     await recordEvents(ctx, project._id, [event], queued ?? false);
     return { success: true, queued: queued ?? false };
+  },
+});
+
+// Maintenance: recompute dailyStats from raw events (e.g. after changing the reporting time zone).
+// Reads every event in one transaction, so it only suits small datasets.
+// Run: npx convex run events:rebuildDailyStats
+export const rebuildDailyStats = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    for (const s of await ctx.db.query('dailyStats').collect()) {
+      await ctx.db.delete(s._id);
+    }
+
+    const rows = new Map<string, { projectId: Id<'projects'>; day: string; eventName: string; count: number; lastSeen: number }>();
+    for (const e of await ctx.db.query('events').collect()) {
+      const day = reportDay(e.createdAt);
+      const key = `${e.projectId}|${day}|${e.eventName}`;
+      const row = rows.get(key);
+      if (row) {
+        row.count += 1;
+        row.lastSeen = Math.max(row.lastSeen, e.createdAt);
+      } else {
+        rows.set(key, { projectId: e.projectId, day, eventName: e.eventName, count: 1, lastSeen: e.createdAt });
+      }
+    }
+    for (const row of rows.values()) {
+      await ctx.db.insert('dailyStats', row);
+    }
+    return { rows: rows.size };
   },
 });

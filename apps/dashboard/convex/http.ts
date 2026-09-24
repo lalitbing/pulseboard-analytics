@@ -3,6 +3,7 @@ import { ConvexError } from 'convex/values';
 import { api, internal } from './_generated/api';
 import { httpAction, type ActionCtx } from './_generated/server';
 import type { TrackInput } from './lib';
+import { isRateLimitError, rateLimiter } from './rateLimits';
 
 // Public REST API, served at https://<deployment>.convex.site/api/...
 // Same paths as the old Express API so the SDK and curl snippets keep working.
@@ -14,14 +15,23 @@ const CORS_HEADERS = {
   'Access-Control-Max-Age': '86400',
 };
 
-const json = (body: unknown, status = 200) =>
+const json = (body: unknown, status = 200, extraHeaders: Record<string, string> = {}) =>
   new Response(JSON.stringify(body), {
     status,
-    headers: { ...CORS_HEADERS, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+    headers: { ...CORS_HEADERS, 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...extraHeaders },
   });
 
-const errorMessage = (err: unknown) =>
-  err instanceof ConvexError ? String(err.data) : 'Internal error';
+const rateLimited = (retryAfterMs: number) => {
+  const seconds = Math.max(1, Math.ceil(retryAfterMs / 1000));
+  return json({ error: 'Rate limit exceeded', retryAfterSeconds: seconds }, 429, { 'Retry-After': String(seconds) });
+};
+
+// Maps expected errors to 4xx responses; anything else is rethrown as a 500.
+function errorResponse(err: unknown) {
+  if (isRateLimitError(err)) return rateLimited(err.data.retryAfter);
+  if (err instanceof ConvexError) return json({ error: String(err.data) }, 400);
+  throw err;
+}
 
 async function resolveProject(ctx: ActionCtx, req: Request) {
   const apiKey = req.headers.get('x-api-key');
@@ -75,8 +85,7 @@ async function recordFromRequest(ctx: ActionCtx, req: Request, getEvents: (body:
       queued,
     });
   } catch (err) {
-    if (err instanceof ConvexError) return json({ error: errorMessage(err) }, 400);
-    throw err;
+    return errorResponse(err);
   }
   return json({ success: true, queued });
 }
@@ -100,6 +109,9 @@ const statsHandler = (pick: 'events' | 'top-events') =>
     const resolved = await resolveProject(ctx, req);
     if (resolved.error) return resolved.error;
 
+    const status = await rateLimiter.limit(ctx, 'apiReads', { key: resolved.project._id });
+    if (!status.ok) return rateLimited(status.retryAfter);
+
     const q = new URL(req.url).searchParams;
     try {
       const s = await ctx.runQuery(api.stats.summary, {
@@ -111,8 +123,7 @@ const statsHandler = (pick: 'events' | 'top-events') =>
         ? json({ total: s.total, daily: s.daily })
         : json({ top: s.top.slice(0, 5), total: s.total });
     } catch (err) {
-      if (err instanceof ConvexError) return json({ error: errorMessage(err) }, 400);
-      throw err;
+      return errorResponse(err);
     }
   });
 

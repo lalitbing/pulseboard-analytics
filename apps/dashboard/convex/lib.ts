@@ -43,13 +43,18 @@ export function resolveCreatedAt(ts: number | undefined, now: number) {
   return ts;
 }
 
-export const utcDay = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+// Days are reported in Indian Standard Time. IST has no daylight saving, so a fixed offset is exact.
+const REPORT_UTC_OFFSET = '+05:30';
+const REPORT_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
 
-// `from`/`to` are `YYYY-MM-DD` (UTC day boundaries) or full ISO timestamps.
+// YYYY-MM-DD of the IST calendar day containing `ms`.
+export const reportDay = (ms: number) => new Date(ms + REPORT_OFFSET_MS).toISOString().slice(0, 10);
+
+// `from`/`to` are `YYYY-MM-DD` (IST day boundaries) or full ISO timestamps.
 export function parseRange(from?: string, to?: string) {
   if (!from || !to) return null;
-  const start = from.includes('T') ? Date.parse(from) : Date.parse(`${from}T00:00:00.000Z`);
-  const end = to.includes('T') ? Date.parse(to) : Date.parse(`${to}T23:59:59.999Z`);
+  const start = from.includes('T') ? Date.parse(from) : Date.parse(`${from}T00:00:00.000${REPORT_UTC_OFFSET}`);
+  const end = to.includes('T') ? Date.parse(to) : Date.parse(`${to}T23:59:59.999${REPORT_UTC_OFFSET}`);
   if (Number.isNaN(start) || Number.isNaN(end)) throw new ConvexError('Invalid date range');
-  return { start, end, fromDay: utcDay(start), toDay: utcDay(end) };
+  return { start, end, fromDay: reportDay(start), toDay: reportDay(end) };
 }

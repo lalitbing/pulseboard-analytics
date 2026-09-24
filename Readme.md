@@ -123,6 +123,19 @@ curl -X POST "https://your-deployment.convex.site/api/track" \
 - **Queued**: `queued:true` hands the event to the Convex scheduler and responds immediately; it is written moments later. (`useRedis` is still accepted as an alias for older clients.)
 - **Batch**: `POST /api/track/batch` with `{"events":[...]}` (max 100 per request).
 
+### Rate limits
+
+Limits are per project (API key), using `@convex-dev/rate-limiter`:
+
+- **Tracking**: 100 events/minute (token bucket, burst of 100). A batch costs one token per event. The dashboard's track modal shares this budget.
+- **Stats API**: 60 requests/minute (burst of 30).
+
+Over the limit, the API returns `429` with a `Retry-After` header and `{"error":"Rate limit exceeded","retryAfterSeconds":N}`.
+
+### Time zone
+
+All reporting uses **Indian Standard Time (IST, UTC+5:30)**: daily buckets, “today”, and the `from`/`to` dates in the stats API are IST calendar days. Raw event timestamps are stored as UTC milliseconds.
+
 ### API: Stats
 
 ```
@@ -152,7 +165,8 @@ When **Real-time mode** is ON the dashboard subscribes to Convex live queries ov
 |---|---|---|
 | **Convex for DB + API + queue + realtime** | One managed backend, no servers to keep awake, free tier covers demos | Vendor-specific APIs; no SQL (aggregations are done in code / rollups) |
 | **Scheduler as the async queue** | Durable, transactional enqueue with no extra infra | Less visible/tunable than a dedicated queue + worker; no custom retry/DLQ policy |
-| **`dailyStats` rollup** | Constant-size reads for KPIs/chart/top events | Extra write per event; rollup is per UTC day |
+| **`dailyStats` rollup** | Constant-size reads for KPIs/chart/top events | Extra write per event; rollup is per IST day (changing time zone needs `npx convex run events:rebuildDailyStats`) |
+| **Per-project rate limits** | Protects the free-tier quota, since the demo API key is public | Legit bursts over 100 events/min get `429`s and must retry |
 | **API key in the dashboard bundle** | Simple single-project demo | Anyone can read the key from the built JS; use auth for multi-tenant setups |
 | **Real-time vs one-shot mode** | Real-time feels “alive”; one-shot is cheaper for big ranges | Two modes to reason about (same queries, though) |
 

@@ -18,11 +18,11 @@ export default defineSchema({
     createdAt: v.number(),
   }).index('by_project_createdAt', ['projectId', 'createdAt']),
 
-  // Daily rollup per (project, UTC day, event name). The dashboard reads these instead of
+  // Daily rollup per (project, IST day, event name). The dashboard reads these instead of
   // scanning raw events, which keeps reads small enough for the Convex free tier.
   dailyStats: defineTable({
     projectId: v.id('projects'),
-    day: v.string(), // YYYY-MM-DD (UTC)
+    day: v.string(), // YYYY-MM-DD (IST)
     eventName: v.string(),
     count: v.number(),
     lastSeen: v.number(),

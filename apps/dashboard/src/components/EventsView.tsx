@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { formatIstDateTime, toIstIso } from '../lib/time';
 
 type RawEvent = {
   event_name: string;
@@ -10,7 +11,7 @@ type SortKey = 'time_desc' | 'time_asc' | 'name';
 function fmtFull(iso: string) {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleString(undefined, {
+  return formatIstDateTime(d, {
     year: 'numeric',
     month: 'short',
     day: '2-digit',
@@ -128,7 +129,7 @@ export default function EventsView({
                   <div className="grid grid-cols-1 sm:grid-cols-[1.2fr_0.9fr_0.45fr] gap-2 sm:gap-3">
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium text-gray-900">{e.event_name}</p>
-                      <p className="mt-0.5 truncate text-[11px] text-gray-600">{e.created_at}</p>
+                      <p className="mt-0.5 truncate text-[11px] text-gray-600">{toIstIso(e.created_at)}</p>
                     </div>
                     <div className="text-sm text-gray-900">{fmtFull(e.created_at)}</div>
                     <div className="text-right text-sm text-gray-700 tabular-nums">{fmtAgo(e.created_at)}</div>

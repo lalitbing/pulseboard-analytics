@@ -8,6 +8,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { formatDayLabel } from '../lib/time';
 
 export default function EventsChart({ data, loading }: { data: { date: string; count: number }[]; loading?: boolean }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -69,11 +70,7 @@ export default function EventsChart({ data, loading }: { data: { date: string; c
   // Already bucketed per UTC day by the backend
   const chartData = data;
 
-  const fmt = (iso: string) => {
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return iso;
-    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-  };
+  const fmt = (iso: string) => formatDayLabel(iso, { month: 'short', day: 'numeric' });
 
   return (
     <div ref={containerRef} className="w-full min-w-0 h-[240px] sm:h-[300px]">
