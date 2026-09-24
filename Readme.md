@@ -216,7 +216,25 @@ const analytics = new Analytics(
 analytics.track("signup_completed", {
   plan: "pro",
 });
+
+// After login / logout
+analytics.identify("user_42");
+analytics.reset();
 ```
+
+Options (third constructor argument): `queued` (send through the server's async queue by default), `sessionTimeoutMs` (default 30 min), `debug` (console logging). `track(name, properties, { queued })` overrides `queued` per event.
+
+What the SDK handles for you:
+
+- **Sessions**: a `sessionId` is attached automatically and rotates after 30 minutes of inactivity; `identify()` attaches a persistent `userId`.
+- **Reliable delivery**: events that can't be sent (offline, network error, `429`, `5xx`) are stored in IndexedDB (in-memory fallback) and retried with backoff, honouring `Retry-After`. The buffer is flushed on page load, when the browser comes back online, and when the tab is hidden, in batches of 100.
+- **Rejected events**: other `4xx` responses (bad payload, invalid key) are dropped with a console warning, since retrying won't help.
+- **Page close**: requests use `keepalive` so events tracked right before unload still get sent.
+- **Multiple tabs**: a Web Lock ensures only one tab flushes the shared buffer at a time.
+- **Server-side**: safe to import in SSR/Node; there it sends directly with no buffer or session.
+- The buffer keeps at most 1,000 events (oldest dropped). The server only keeps client timestamps up to 7 days old.
+
+Run the SDK tests with `npm test` in `packages/sdk`.
 
 ---
 

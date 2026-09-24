@@ -1,21 +1,33 @@
 {
-    "name": "pulseboard-sdk",
-    "version": "1.0.0",
-    "description": "Lightweight analytics SDK for Pulseboard",
-    "main": "dist/index.js",
-    "types": "dist/index.d.ts",
-    "files": ["dist"],
-    "scripts": {
-      "build": "tsc",
-      "prepublishOnly": "npm run build"
-    },
-    "keywords": [
-      "analytics",
-      "tracking",
-      "sdk",
-      "events"
-    ],
-    "author": "Lalit Sharma",
-    "license": "MIT"
+  "name": "pulseboard-sdk",
+  "version": "1.1.0",
+  "description": "Lightweight analytics SDK for Pulseboard",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc",
+    "test": "npm run build && node --test test/*.test.mjs",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "analytics",
+    "tracking",
+    "sdk",
+    "events"
+  ],
+  "author": "Lalit Sharma",
+  "license": "MIT",
+  "devDependencies": {
+    "fake-indexeddb": "^6.0.0",
+    "typescript": "^5.9.3"
   }
-  
+}
