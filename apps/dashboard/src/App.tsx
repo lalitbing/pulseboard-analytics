@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQuery } from 'convex/react';
 import { api } from '../convex/_generated/api';
-import { getEvents, getProjectInfo, getSummary, type Range } from './api/analytics';
+import { getEvents, type Range } from './api/analytics';
 import { API_KEY, API_URL, isConvexConfigured } from './lib/convex';
 import { formatDayLabel, formatIstDateTime, istDate, REPORT_TIME_ZONE } from './lib/time';
 import EventsChart from './components/EventsChart';
@@ -13,26 +13,6 @@ import AppShell from './components/AppShell';
 import EventsView from './components/EventsView';
 import IntegrationView from './components/IntegrationView';
 import { subscribeToast, type ToastInput, type ToastPayload } from './lib/toastBus';
-
-type EventRow = {
-  created_at: string;
-  event_name: string;
-};
-
-type TopEventRow = {
-  event_name: string;
-  count: number;
-  last_seen: string;
-};
-
-type RealTimeStatus = 'disabled' | 'missing_config' | 'missing_project' | 'connecting' | 'subscribed' | 'error';
-
-type Summary = {
-  total: number;
-  daily: { date: string; count: number }[];
-  top: TopEventRow[];
-  recent: EventRow[];
-};
 
 function formatShortDate(iso: string) {
   return formatDayLabel(iso, { year: 'numeric', month: 'short', day: '2-digit' });
@@ -58,12 +38,6 @@ function downloadCsv(filename: string, header: string[], rows: (string | number)
 }
 
 function App() {
-  const [summary, setSummary] = useState<Summary | null>(null);
-  const [events, setEvents] = useState<EventRow[]>([]);
-  const [loadingSummary, setLoadingSummary] = useState(true);
-  const [loadingEvents, setLoadingEvents] = useState(true);
-  const [realTimeEnabled, setRealTimeEnabled] = useState(false);
-  const [projectError, setProjectError] = useState<string | null>(null);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
   const exportRef = useRef<HTMLDivElement | null>(null);
@@ -84,11 +58,20 @@ function App() {
   const [activePreset, setActivePreset] = useState<DatePreset>('all');
   const [customOpen, setCustomOpen] = useState(false);
 
-  // Real-time mode: subscribe to the same Convex queries; they re-run whenever events land.
-  const live = realTimeEnabled && isConvexConfigured && !projectError;
-  const liveArgs = { apiKey: API_KEY, ...appliedRange };
-  const liveSummary = useQuery(api.stats.summary, live ? liveArgs : 'skip');
-  const liveEvents = useQuery(api.stats.events, live && page === 'Events' ? liveArgs : 'skip');
+  // Everything on the dashboard is a live Convex subscription: queries re-run whenever events land.
+  // Stats wait for the key check so an invalid key shows a status instead of throwing.
+  const project = useQuery(api.stats.projectInfo, isConvexConfigured ? { apiKey: API_KEY } : 'skip');
+  const statsArgs = project ? { apiKey: API_KEY, ...appliedRange } : 'skip';
+  const summary = useQuery(api.stats.summary, statsArgs);
+  const events = useQuery(api.stats.events, page === 'Events' ? statsArgs : 'skip');
+  const liveProblem = !isConvexConfigured ? 'missing_config' : project === null ? 'invalid_key' : null;
+
+  // Stamp "Last updated" whenever a new summary result arrives.
+  const [stampedSummary, setStampedSummary] = useState(summary);
+  if (summary !== stampedSummary) {
+    setStampedSummary(summary);
+    if (summary) setLastUpdatedAt(new Date());
+  }
 
   const handleRangeChange = (key: 'from' | 'to', value: string) => {
     setDraftRange((prev) => ({
@@ -97,66 +80,10 @@ function App() {
     }));
   };
 
-  const loadSummary = async (currentRange: Range) => {
-    if (!isConvexConfigured) {
-      setLoadingSummary(false);
-      return;
-    }
-    setLoadingSummary(true);
-    try {
-      setSummary(await getSummary(currentRange));
-      setLastUpdatedAt(new Date());
-    } catch (err) {
-      console.error('Failed to load summary:', err);
-      setToast({ kind: 'error', message: 'Failed to load stats' });
-    } finally {
-      setLoadingSummary(false);
-    }
-  };
-
-  const loadEvents = async (currentRange: Range) => {
-    if (!isConvexConfigured) {
-      setLoadingEvents(false);
-      return;
-    }
-    setLoadingEvents(true);
-    try {
-      setEvents(await getEvents(currentRange));
-    } catch (err) {
-      console.error('Failed to load events:', err);
-      setToast({ kind: 'error', message: 'Failed to load events' });
-    } finally {
-      setLoadingEvents(false);
-    }
-  };
-
-  // Validate the API key once so a bad key shows a clear status instead of failing silently.
-  useEffect(() => {
-    if (!isConvexConfigured) return;
-    getProjectInfo().catch((err) => {
-      console.error('Project lookup failed:', err);
-      setProjectError('Invalid API key (project lookup failed)');
-    });
-  }, []);
-
   useEffect(() => {
     return subscribeToast((t) => setToast(t));
   }, []);
 
-  // One-shot loads when Real-time mode is off.
-  useEffect(() => {
-    if (realTimeEnabled) return;
-    void loadSummary(appliedRange);
-  }, [realTimeEnabled, appliedRange]);
-
-  useEffect(() => {
-    if (realTimeEnabled || page !== 'Events') return;
-    void loadEvents(appliedRange);
-  }, [realTimeEnabled, appliedRange, page]);
-
-  useEffect(() => {
-    if (liveSummary) setLastUpdatedAt(new Date());
-  }, [liveSummary]);
 
   useEffect(() => {
     if (!exportOpen) return;
@@ -252,29 +179,10 @@ function App() {
   const apiUrl = API_URL;
   const apiKeyPresent = Boolean(API_KEY);
 
-  // Use the live subscription when Real-time mode is on, otherwise the one-shot results
-  const displaySummary = live ? liveSummary ?? null : summary;
-  const displayEvents = live ? liveEvents ?? [] : events;
-  const displayLoading = live ? liveSummary === undefined : loadingSummary;
-  const displayEventsLoading = live ? liveEvents === undefined : loadingEvents;
-  const displayTop = displaySummary?.top ?? [];
-  const daily = displaySummary?.daily ?? [];
-  const totalEvents = displaySummary?.total ?? 0;
-
-  const realTimeStatus: RealTimeStatus = !realTimeEnabled
-    ? 'disabled'
-    : !isConvexConfigured
-      ? 'missing_config'
-      : projectError
-        ? 'missing_project'
-        : liveSummary === undefined
-          ? 'connecting'
-          : 'subscribed';
-  const realTimeError = !realTimeEnabled
-    ? null
-    : !isConvexConfigured
-      ? 'Missing VITE_CONVEX_URL / VITE_API_KEY'
-      : projectError;
+  const isLoading = liveProblem === null && summary === undefined;
+  const displayTop = summary?.top ?? [];
+  const daily = summary?.daily ?? [];
+  const totalEvents = summary?.total ?? 0;
 
   const todayIso = istDate(new Date());
   const activeDays = daily.length;
@@ -288,19 +196,11 @@ function App() {
 
   const avgPerActiveDay = activeDays ? Math.round((totalEvents / activeDays) * 10) / 10 : 0;
 
-  const recentEvents = displaySummary?.recent ?? [];
-
-  const handleRealTimeToggle = (enabled: boolean) => {
-    if (enabled && !isConvexConfigured) {
-      setToast({ kind: 'error', message: 'Real-time unavailable: missing Convex env' });
-      return;
-    }
-    setRealTimeEnabled(enabled);
-  };
+  const recentEvents = summary?.recent ?? [];
 
   const exportEventsCsv = async () => {
     try {
-      const rows = live && liveEvents ? liveEvents : await getEvents(appliedRange);
+      const rows = events ?? (await getEvents(appliedRange));
       downloadCsv(
         `events_${appliedRange.from}_to_${appliedRange.to}.csv`,
         ['event_name', 'created_at'],
@@ -319,17 +219,10 @@ function App() {
       onNavigate={(p) => setPage(p)}
       onToast={(t: ToastInput) => setToast(typeof t === 'string' ? { message: t } : t)}
       onEventTracked={() => {
+        // The live queries pick the new event up on their own.
         setToast({ kind: 'success', message: 'Event tracked' });
-        // Real-time mode picks the new event up on its own.
-        if (!realTimeEnabled) {
-          void loadSummary(appliedRange);
-          if (page === 'Events') void loadEvents(appliedRange);
-        }
       }}
-      realTimeEnabled={realTimeEnabled}
-      onRealTimeToggle={handleRealTimeToggle}
-      realTimeStatus={realTimeStatus}
-      realTimeError={realTimeError}
+      liveProblem={liveProblem}
       right={
         showDateFilter ? (
         <div className="w-full">
@@ -425,13 +318,13 @@ function App() {
           <div className="xl:col-span-2 space-y-6">
             {/* KPI row */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <KPI label="Total events" value={totalEvents} loading={displayLoading} hint="All tracked events" />
-              <KPI label="Unique events" value={uniqueEvents} loading={displayLoading} hint="Distinct names" />
-              <KPI label="Avg / active day" value={avgPerActiveDay} loading={displayLoading} hint="Smoothed" />
+              <KPI label="Total events" value={totalEvents} loading={isLoading} hint="All tracked events" />
+              <KPI label="Unique events" value={uniqueEvents} loading={isLoading} hint="Distinct names" />
+              <KPI label="Avg / active day" value={avgPerActiveDay} loading={isLoading} hint="Smoothed" />
               <KPI
                 label="Peak day"
                 value={peak ? peak.count : '—'}
-                loading={displayLoading}
+                loading={isLoading}
                 hint="Most events in one day"
                 secondary={peak ? formatShortDate(peak.date) : undefined}
               />
@@ -443,7 +336,7 @@ function App() {
               subtitle={lastUpdatedAt ? `Last updated ${lastUpdatedAt.toLocaleTimeString(undefined, { timeZone: REPORT_TIME_ZONE })} IST` : ' '}
               actions={
                 <div className="flex flex-wrap items-center gap-2 min-w-0">
-                  {live && (
+                  {liveProblem === null && summary !== undefined && (
                     <span
                       className="text-[11px] rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 px-2 py-0.5 flex items-center gap-1"
                       title="Real-time mode active"
@@ -470,12 +363,12 @@ function App() {
                 </div>
               }
             >
-              <EventsChart data={daily} loading={displayLoading} />
+              <EventsChart data={daily} loading={isLoading} />
             </Card>
 
             {/* Recent activity */}
             <Card title="Recent activity" subtitle="Latest events observed on the backend">
-              {displayLoading ? (
+              {isLoading ? (
                 <div className="space-y-2">
                   {Array.from({ length: 6 }).map((_, i) => (
                     <div key={i} className="h-10 rounded-xl bg-gray-100 animate-pulse" />
@@ -499,11 +392,11 @@ function App() {
           {/* Right rail */}
           <div className="space-y-6">
             <Card title="Top events" subtitle="Most frequent">
-              <TopEvents data={displayTop} loading={displayLoading} />
+              <TopEvents data={displayTop} loading={isLoading} />
             </Card>
 
             <Card title="Today" subtitle="Quick snapshot">
-              {displayLoading ? (
+              {isLoading ? (
                 <div className="h-10 rounded-xl bg-gray-100 animate-pulse" />
               ) : (
                 <div className="flex items-end justify-between">
@@ -583,7 +476,7 @@ function App() {
           </div>
         </div>
       ) : page === 'Events' ? (
-        <EventsView events={displayEvents} loading={displayEventsLoading} selectedEventName={selectedEventName} onClearSelected={() => {}} />
+        <EventsView events={events ?? []} loading={liveProblem === null && events === undefined} selectedEventName={selectedEventName} onClearSelected={() => {}} />
       ) : (
         <IntegrationView apiUrl={apiUrl} apiKeyPresent={apiKeyPresent} />
       )}

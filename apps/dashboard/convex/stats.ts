@@ -77,10 +77,15 @@ export const events = query({
   },
 });
 
+// Returns null (rather than throwing) for an unknown key, so the dashboard can show a status
+// instead of crashing its live queries.
 export const projectInfo = query({
   args: { apiKey: v.string() },
   handler: async (ctx, { apiKey }) => {
-    const project = await requireProject(ctx, apiKey);
-    return { id: project._id, name: project.name };
+    const project = await ctx.db
+      .query('projects')
+      .withIndex('by_apiKey', (q) => q.eq('apiKey', apiKey))
+      .unique();
+    return project ? { id: project._id, name: project.name } : null;
   },
 });

@@ -1,6 +1,6 @@
 # Pulseboard — Full‑Stack Product Analytics (OSS)
 
-Pulseboard is a lightweight analytics platform you can self-host to **track custom product events**, **ingest them inline or through an async queue**, and **explore insights in a modern dashboard** with an optional **real‑time mode**. The backend runs entirely on [Convex](https://convex.dev) (database, functions, HTTP API, scheduler and live queries).
+Pulseboard is a lightweight analytics platform you can self-host to **track custom product events**, **ingest them inline or through an async queue**, and **explore insights in a modern dashboard** that **updates live**. The backend runs entirely on [Convex](https://convex.dev) (database, functions, HTTP API, scheduler and live queries).
 
 - **Live demo**: `https://pulseboard-platform.vercel.app/`
 - **GitHub repo**: `https://github.com/lalitbing/pulseboard-analytics`
@@ -15,7 +15,7 @@ Pulseboard is a lightweight analytics platform you can self-host to **track cust
   - **Overview**: KPIs, trend chart, top events, recent activity
   - **Events**: raw event exploration (filter/search)
   - **Integration**: copy/paste snippets + SDK guidance
-- **Real-time mode (UI)**: when enabled, the dashboard subscribes to Convex live queries and updates instantly as events land
+- **Live dashboard**: every view is a Convex live query, so new events show up instantly without refreshing
 - **Custom event tracking UI**: a floating “Track custom event” modal with a “Queue (async)” toggle
 - **Exports**: CSV export for Events / Top events
 
@@ -55,12 +55,11 @@ flowchart LR
   - `events.ts` — ingestion; every write also updates `dailyStats`. Queued events go through `ctx.scheduler`
   - `stats.ts` — dashboard queries (`summary`, `events`, `projectInfo`)
 - **Dashboard (`apps/dashboard/src`)** — React + Vite, deployed on Vercel
-  - Default mode: one-shot Convex queries on load / range change / after tracking
-  - **Real-time mode**: the same queries via `useQuery`, which Convex re-runs whenever the data changes
+  - Every view subscribes to Convex queries with `useQuery`; Convex re-runs them over one WebSocket whenever the data changes
 
 ### Why a `dailyStats` rollup?
 
-KPIs, the chart and top events are computed from `dailyStats` (one row per project/day/event name) instead of scanning raw events. This keeps reads small no matter how many events you store, which matters on the Convex free tier and makes real-time mode cheap. The Events page reads raw events, capped at the newest 500 in the range.
+KPIs, the chart and top events are computed from `dailyStats` (one row per project/day/event name) instead of scanning raw events. This keeps reads small no matter how many events you store, which matters on the Convex free tier and keeps live updates cheap. The Events page reads raw events, capped at the newest 500 in the range.
 
 ---
 
@@ -153,9 +152,9 @@ GET /api/stats/top-events?from=YYYY-MM-DD&to=YYYY-MM-DD  → { total, top: [{ ev
 - **Events** — browse raw events for the selected date range
 - **Integration** — API usage snippets, stats endpoints, SDK usage
 
-### Real-time mode (what it means)
+### Live updates
 
-When **Real-time mode** is ON the dashboard subscribes to Convex live queries over a WebSocket, so new events show up without polling or refreshing. When it is OFF the dashboard fetches once and refreshes on interactions (date range, tracking an event, etc).
+The dashboard keeps one WebSocket open to Convex and subscribes to its queries, so new events show up without polling or refreshing. The sidebar's **Live updates** card shows the connection state (Live / Connecting / Reconnecting, or a config problem). In DevTools these are WebSocket messages (Network → WS), not individual HTTP requests.
 
 ---
 
@@ -168,7 +167,7 @@ When **Real-time mode** is ON the dashboard subscribes to Convex live queries ov
 | **`dailyStats` rollup** | Constant-size reads for KPIs/chart/top events | Extra write per event; rollup is per IST day (changing time zone needs `npx convex run events:rebuildDailyStats`) |
 | **Per-project rate limits** | Protects the free-tier quota, since the demo API key is public | Legit bursts over 100 events/min get `429`s and must retry |
 | **API key in the dashboard bundle** | Simple single-project demo | Anyone can read the key from the built JS; use auth for multi-tenant setups |
-| **Real-time vs one-shot mode** | Real-time feels “alive”; one-shot is cheaper for big ranges | Two modes to reason about (same queries, though) |
+| **Always-live dashboard** | One code path; new events appear without a toggle or refresh | Each new event re-runs open queries for every viewer (small, thanks to `dailyStats`) |
 
 ---
 
@@ -179,7 +178,7 @@ When **Real-time mode** is ON the dashboard subscribes to Convex live queries ov
 - **401**: missing `x-api-key`
 - **403**: invalid API key (no row in the Convex `projects` table with that `apiKey`)
 
-### Real-time mode says “Missing Convex env” or “Invalid API key”
+### Live updates says “Missing Convex env” or “Invalid API key”
 
 - Set `VITE_CONVEX_URL` and `VITE_API_KEY` in `apps/dashboard/.env.local` (or in Vercel for production)
 - Make sure the key exists in the deployment the dashboard points at (dev and prod have separate data)
