@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ArrowUpRight, Check, Copy } from '@phosphor-icons/react';
 import Card from './Card';
 
 function CodeBlock({ code, className = '' }: { code: string; className?: string }) {
@@ -35,52 +36,18 @@ function CodeBlock({ code, className = '' }: { code: string; className?: string 
   };
 
   return (
-    <div className={'relative ' + className}>
+    <div className={'group relative ' + className}>
       <button
         type="button"
         onClick={onCopy}
-        className="absolute cursor-pointer right-2 top-2 inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white/80 px-2 py-1 text-[11px] font-medium text-gray-700 shadow-sm backdrop-blur hover:bg-white focus:outline-none focus:ring-2 focus:ring-gray-900/10"
+        className="absolute cursor-pointer right-2 top-2 inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2 py-1 text-[11px] font-medium text-ink-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
         aria-label={copied ? 'Copied' : 'Copy'}
       >
-        {copied ? (
-          <>
-            <svg
-              aria-hidden="true"
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-3.5 w-3.5 text-emerald-600"
-            >
-              <path d="M20 6 9 17l-5-5" />
-            </svg>
-            <span>Copied</span>
-          </>
-        ) : (
-          <>
-            <svg
-              aria-hidden="true"
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-3.5 w-3.5 text-gray-600"
-            >
-              <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-            </svg>
-            <span>Copy</span>
-          </>
-        )}
+        {copied ? <Check size={13} weight="bold" className="text-ok" /> : <Copy size={13} />}
+        <span>{copied ? 'Copied' : 'Copy'}</span>
       </button>
 
-      <pre className="overflow-auto rounded-xl border border-gray-100 bg-gray-50 p-3 pt-10 text-[12px] leading-5 text-gray-900">
+      <pre className="overflow-auto rounded-lg border border-line bg-subtle p-4 pr-24 font-mono text-[12.5px] leading-6 text-ink">
         {code}
       </pre>
     </div>
@@ -128,27 +95,25 @@ analytics.track("signup_completed", {
 });`;
 
   return (
-    <div className="grid grid-cols-1 gap-6">
-      <Card title="📡 Track events" subtitle="Send custom events to Pulseboard via HTTP">
-        <p className="text-sm text-gray-700">
-          Event names support <span className="font-semibold">alphabets, numbers, and underscore</span>{' '}
-          (<span className="font-mono">[A-Za-z0-9_]+</span>).
+    <div className="grid grid-cols-1 gap-4 max-w-4xl">
+      <Card title="Track events" subtitle="Send custom events to Pulseboard via HTTP">
+        <p className="text-sm text-ink-2">
+          Event names support <span className="font-medium text-ink">letters, numbers and underscores</span>{' '}
+          (<code className="rounded bg-subtle px-1 py-0.5 font-mono text-[12px] text-ink">[A-Za-z0-9_]+</code>).
         </p>
 
         <CodeBlock className="mt-3" code={trackCurl} />
 
-        <div className="mt-3 space-y-1 text-xs text-gray-600">
-          <p>
-            <span className="font-semibold">queued: false</span> → written inline, before the response
-          </p>
-          <p>
-            <span className="font-semibold">queued: true</span> → handed to the Convex scheduler and written asynchronously
-          </p>
-        </div>
+        <dl className="mt-4 grid grid-cols-1 sm:grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-xs">
+          <dt className="font-mono text-ink">queued: false</dt>
+          <dd className="text-ink-3">Written inline, before the response</dd>
+          <dt className="font-mono text-ink">queued: true</dt>
+          <dd className="text-ink-3">Handed to the Convex scheduler and written asynchronously</dd>
+        </dl>
 
         {!apiKeyPresent ? (
-          <p className="mt-3 text-xs text-amber-700">
-            Set <span className="font-semibold">VITE_API_KEY</span> in the dashboard env to enable requests.
+          <p className="mt-4 rounded-lg bg-warn-soft px-3 py-2 text-xs text-warn">
+            Set <span className="font-mono font-medium">VITE_API_KEY</span> in the dashboard env to enable requests.
           </p>
         ) : null}
       </Card>
@@ -158,33 +123,17 @@ analytics.track("signup_completed", {
         <CodeBlock className="mt-3" code={statsCurl} />
       </Card>
 
-      <Card title="📦 SDK usage (local)" subtitle="Not published on npm (yet)">
-        <div className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-          <span className="text-gray-600">Github repo</span>
-          <span className="text-gray-300">•</span>
-          <a
-            className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-gray-50 px-2 py-1 font-medium text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900/10"
-            href="https://github.com/lalitbing/pulseboard-analytics"
-            target="_blank"
-            rel="noreferrer"
-          >
-            lalitbing/pulseboard-analytics
-            <svg
-              aria-hidden="true"
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-4 w-4 text-gray-500"
-            >
-              <path d="M7 17 17 7" />
-              <path d="M10 7h7v7" />
-            </svg>
-          </a>
-        </div>
+      <Card title="SDK usage (local)" subtitle="Not published on npm (yet)">
+        <a
+          className="mb-4 inline-flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1.5 text-sm font-medium text-ink hover:bg-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+          href="https://github.com/lalitbing/pulseboard-analytics"
+          target="_blank"
+          rel="noreferrer"
+        >
+          <span className="text-ink-3">GitHub</span>
+          lalitbing/pulseboard-analytics
+          <ArrowUpRight size={14} className="text-ink-3" />
+        </a>
 
         <CodeBlock code={sdkInstall} />
         <CodeBlock className="mt-3" code={sdkExample} />

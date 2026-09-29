@@ -12,6 +12,7 @@ import DateFilter, { type DatePreset } from './components/DateFilter';
 import AppShell from './components/AppShell';
 import EventsView from './components/EventsView';
 import IntegrationView from './components/IntegrationView';
+import { DownloadSimple, CheckCircle, WarningCircle, Info } from '@phosphor-icons/react';
 import { subscribeToast, type ToastInput, type ToastPayload } from './lib/toastBus';
 
 function formatShortDate(iso: string) {
@@ -198,6 +199,11 @@ function App() {
 
   const recentEvents = summary?.recent ?? [];
 
+  const snippet =
+    snippetTab === 'curl'
+      ? `curl -X POST "${apiUrl}/track" \\\n  -H "x-api-key: <YOUR_API_KEY>" \\\n  -H "Content-Type: application/json" \\\n  -d '{"event":"signup_completed","queued":false}'`
+      : `await fetch("${apiUrl}/track", {\n  method: "POST",\n  headers: {\n    "x-api-key": "<YOUR_API_KEY>",\n    "Content-Type": "application/json",\n  },\n  body: JSON.stringify({ event: "signup_completed", queued: false }),\n});`;
+
   const exportEventsCsv = async () => {
     try {
       const rows = events ?? (await getEvents(appliedRange));
@@ -242,29 +248,19 @@ function App() {
                 <button
                   type="button"
                   onClick={() => setExportOpen((v) => !v)}
-                  className="cursor-pointer rounded-full border border-gray-900 bg-gray-900 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-900/10"
-                  aria-label="Export"
+                  aria-haspopup="menu"
+                  aria-expanded={exportOpen}
+                  className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-ink hover:bg-subtle active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
                 >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="h-4 w-4"
-                  >
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                    <polyline points="7 10 12 15 17 10" />
-                    <line x1="12" y1="15" x2="12" y2="3" />
-                  </svg>
+                  <DownloadSimple size={14} />
+                  Export
                 </button>
                 {exportOpen ? (
-                  <div className="absolute right-0 mt-2 w-44 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl" style={{ zIndex: 90 }} role="menu">
+                  <div className="absolute right-0 z-10 mt-1.5 w-44 overflow-hidden rounded-lg border border-line bg-surface p-1 shadow-pop animate-pop-in" role="menu">
                     <button
                       type="button"
-                      className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 cursor-pointer transition"
+                      role="menuitem"
+                      className="w-full rounded-md px-2.5 py-1.5 text-left text-sm text-ink hover:bg-subtle cursor-pointer transition"
                       onClick={() => {
                         setExportOpen(false);
                         void exportEventsCsv();
@@ -274,7 +270,8 @@ function App() {
                     </button>
                     <button
                       type="button"
-                      className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 cursor-pointer transition"
+                      role="menuitem"
+                      className="w-full rounded-md px-2.5 py-1.5 text-left text-sm text-ink hover:bg-subtle cursor-pointer transition"
                       onClick={() => {
                         setExportOpen(false);
                         downloadCsv(
@@ -296,34 +293,34 @@ function App() {
       }
     >
       {toast ? (
-        <div className="fixed top-4 right-4 z-60">
-          <div
-            className={
-              'rounded-xl border bg-white shadow-lg px-3 py-2 ' +
-              (toast.kind === 'error'
-                ? 'border-red-200'
-                : toast.kind === 'success'
-                  ? 'border-emerald-200'
-                  : 'border-gray-200')
-            }
-          >
-            {toast.title ? <div className="text-sm font-semibold text-gray-900">{toast.title}</div> : null}
-            <div className="text-sm text-gray-900">{toast.message}</div>
+        <div className="fixed top-4 right-4 z-60" role="status" aria-live="polite">
+          <div key={toast.message} className="flex items-start gap-2.5 rounded-lg border border-line bg-surface px-3 py-2.5 shadow-pop animate-pop-in">
+            {toast.kind === 'error' ? (
+              <WarningCircle size={18} weight="fill" className="mt-px shrink-0 text-bad" />
+            ) : toast.kind === 'success' ? (
+              <CheckCircle size={18} weight="fill" className="mt-px shrink-0 text-ok" />
+            ) : (
+              <Info size={18} weight="fill" className="mt-px shrink-0 text-ink-3" />
+            )}
+            <div>
+              {toast.title ? <div className="text-sm font-medium text-ink">{toast.title}</div> : null}
+              <div className="text-sm text-ink">{toast.message}</div>
+            </div>
           </div>
         </div>
       ) : null}
 
       {page === 'Overview' ? (
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-          <div className="xl:col-span-2 space-y-6">
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+          <div className="xl:col-span-2 space-y-4 min-w-0">
             {/* KPI row */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 rounded-xl border border-line bg-surface [&>*]:border-line max-lg:[&>*:nth-child(-n+2)]:border-b [&>*:nth-child(odd)]:border-r lg:[&>*:not(:last-child)]:border-r">
               <KPI label="Total events" value={totalEvents} loading={isLoading} hint="All tracked events" />
               <KPI label="Unique events" value={uniqueEvents} loading={isLoading} hint="Distinct names" />
               <KPI label="Avg / active day" value={avgPerActiveDay} loading={isLoading} hint="Smoothed" />
               <KPI
                 label="Peak day"
-                value={peak ? peak.count : '—'}
+                value={peak ? peak.count : '-'}
                 loading={isLoading}
                 hint="Most events in one day"
                 secondary={peak ? formatShortDate(peak.date) : undefined}
@@ -333,32 +330,32 @@ function App() {
             {/* Chart */}
             <Card
               title="Events over time"
-              subtitle={lastUpdatedAt ? `Last updated ${lastUpdatedAt.toLocaleTimeString(undefined, { timeZone: REPORT_TIME_ZONE })} IST` : ' '}
+              subtitle={lastUpdatedAt ? `Last updated ${lastUpdatedAt.toLocaleTimeString(undefined, { timeZone: REPORT_TIME_ZONE })} IST` : undefined}
               actions={
-                <div className="flex flex-wrap items-center gap-2 min-w-0">
+                <div className="flex flex-wrap items-center gap-1.5 min-w-0">
                   {liveProblem === null && summary !== undefined && (
                     <span
-                      className="text-[11px] rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 px-2 py-0.5 flex items-center gap-1"
+                      className="inline-flex items-center gap-1.5 rounded-md bg-ok-soft px-1.5 py-0.5 text-[11px] font-medium text-ok"
                       title="Live updates active"
                     >
-                      <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <span className="h-1.5 w-1.5 rounded-full bg-ok animate-pulse" />
                       Live
                     </span>
                   )}
                   <span
                     className={
-                      'text-[11px] rounded-full border px-2 py-0.5 ' +
-                      (apiKeyPresent ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-700')
+                      'rounded-md px-1.5 py-0.5 text-[11px] font-medium ' +
+                      (apiKeyPresent ? 'bg-subtle text-ink-2' : 'bg-warn-soft text-warn')
                     }
                     title={apiKeyPresent ? 'API key configured' : 'Missing VITE_API_KEY'}
                   >
                     {apiKeyPresent ? 'Key OK' : 'Key missing'}
                   </span>
                   <span
-                    className="text-[11px] rounded-full border border-gray-200 bg-gray-50 text-gray-700 px-2 py-0.5 min-w-0 basis-full sm:basis-auto truncate"
+                    className="rounded-md bg-subtle px-1.5 py-0.5 font-mono text-[11px] text-ink-2 min-w-0 max-w-full sm:max-w-[260px] truncate"
                     title={apiUrl}
                   >
-                    API: {apiUrl.replace(/^https?:\/\//, '')}
+                    {apiUrl.replace(/^https?:\/\//, '')}
                   </span>
                 </div>
               }
@@ -369,107 +366,100 @@ function App() {
             {/* Recent activity */}
             <Card title="Recent activity" subtitle="Latest events observed on the backend">
               {isLoading ? (
-                <div className="space-y-2">
+                <div className="-mx-4 sm:-mx-5 -mb-4 sm:-mb-5 divide-y divide-line border-t border-line">
                   {Array.from({ length: 6 }).map((_, i) => (
-                    <div key={i} className="h-10 rounded-xl bg-gray-100 animate-pulse" />
+                    <div key={i} className="flex items-center justify-between px-4 sm:px-5 py-3 animate-pulse">
+                      <div className="h-3.5 w-32 rounded bg-subtle" />
+                      <div className="h-3.5 w-24 rounded bg-subtle" />
+                    </div>
                   ))}
                 </div>
               ) : recentEvents.length ? (
-                <ul className="divide-y divide-gray-100 rounded-xl border border-gray-100 overflow-hidden">
-                  {recentEvents.map((e) => (
-                    <li key={`${e.created_at}-${e.event_name}`} className="flex items-center justify-between gap-3 px-3 py-2.5">
-                      <p className="min-w-0 truncate text-sm font-medium text-gray-900">{e.event_name}</p>
-                      <p className="shrink-0 text-xs text-gray-600">{formatIstDateTime(new Date(e.created_at))}</p>
+                <ul className="-mx-4 sm:-mx-5 -mb-4 sm:-mb-5 divide-y divide-line border-t border-line">
+                  {recentEvents.map((e, idx) => (
+                    <li
+                      key={`${e.created_at}-${e.event_name}-${idx}`}
+                      className="flex items-center justify-between gap-3 px-4 sm:px-5 py-2.5 transition-colors hover:bg-subtle/60"
+                    >
+                      <p className="min-w-0 truncate font-mono text-[13px] text-ink">{e.event_name}</p>
+                      <p className="shrink-0 text-xs text-ink-3 tabular-nums">{formatIstDateTime(new Date(e.created_at))}</p>
                     </li>
                   ))}
                 </ul>
               ) : (
-                <p className="text-sm text-gray-600">No events for this range yet. Track one with the button in the bottom-right.</p>
+                <div className="rounded-lg border border-dashed border-line px-4 py-8 text-center">
+                  <p className="text-sm font-medium text-ink">No events in this range yet</p>
+                  <p className="mt-1 text-xs text-ink-3">Track one with the button in the bottom-right corner.</p>
+                </div>
               )}
             </Card>
           </div>
 
           {/* Right rail */}
-          <div className="space-y-6">
+          <div className="space-y-4 min-w-0">
             <Card title="Top events" subtitle="Most frequent">
               <TopEvents data={displayTop} loading={isLoading} />
             </Card>
 
             <Card title="Today" subtitle="Quick snapshot">
               {isLoading ? (
-                <div className="h-10 rounded-xl bg-gray-100 animate-pulse" />
+                <div className="h-12 rounded-lg bg-subtle animate-pulse" />
               ) : (
-                <div className="flex items-end justify-between">
+                <dl className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-sm font-medium text-gray-900">{todayCount} events</p>
-                    <p className="mt-1 text-xs text-gray-600">{todayIso}</p>
+                    <dt className="text-xs text-ink-3">Events</dt>
+                    <dd className="mt-1 font-mono text-xl font-medium text-ink tabular-nums">{todayCount}</dd>
+                    <dd className="mt-0.5 font-mono text-[11px] text-ink-3">{todayIso}</dd>
                   </div>
-                  <div className="text-right">
-                    <p className="text-xs text-gray-600">Active days</p>
-                    <p className="text-sm font-semibold text-gray-900">{activeDays}</p>
+                  <div>
+                    <dt className="text-xs text-ink-3">Active days</dt>
+                    <dd className="mt-1 font-mono text-xl font-medium text-ink tabular-nums">{activeDays}</dd>
                   </div>
-                </div>
+                </dl>
               )}
             </Card>
 
-            <Card title="Integrate" subtitle="Copy/paste tracking examples">
+            <Card title="Integrate" subtitle="Copy-paste tracking examples">
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setSnippetTab('curl')}
-                  className={
-                    'rounded-lg px-2.5 py-1 text-xs font-medium border ' +
-                    (snippetTab === 'curl'
-                      ? 'bg-gray-900 text-white border-gray-900 cursor-pointer'
-                      : 'bg-white text-gray-800 border-gray-200 hover:bg-gray-50 cursor-pointer')
-                  }
-                >
-                  curl
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSnippetTab('js')}
-                  className={
-                    'rounded-lg px-2.5 py-1 text-xs font-medium border ' +
-                    (snippetTab === 'js'
-                      ? 'bg-gray-900 text-white border-gray-900 cursor-pointer'
-                      : 'bg-white text-gray-800 border-gray-200 hover:bg-gray-50 cursor-pointer')
-                  }
-                >
-                  JS
-                </button>
-
-                <div className="ml-auto">
-                  <button
-                    type="button"
-                    className="rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-800 hover:bg-gray-50 cursor-pointer"
-                    onClick={async () => {
-                      const text =
-                        snippetTab === 'curl'
-                          ? `curl -X POST "${apiUrl}/track" \\\n  -H "x-api-key: <YOUR_API_KEY>" \\\n  -H "Content-Type: application/json" \\\n  -d '{"event":"signup_completed","queued":false}'`
-                          : `await fetch("${apiUrl}/track", {\n  method: "POST",\n  headers: {\n    "x-api-key": "<YOUR_API_KEY>",\n    "Content-Type": "application/json",\n  },\n  body: JSON.stringify({ event: "signup_completed", queued: false }),\n});`;
-                      try {
-                        await navigator.clipboard.writeText(text);
-                        setToast({ kind: 'success', message: 'Copied snippet' });
-                      } catch {
-                        setToast({ kind: 'error', message: 'Copy failed (clipboard blocked)' });
+                <div role="tablist" aria-label="Snippet language" className="inline-flex items-center gap-0.5 rounded-lg bg-subtle p-0.5">
+                  {(['curl', 'js'] as const).map((tab) => (
+                    <button
+                      key={tab}
+                      type="button"
+                      role="tab"
+                      aria-selected={snippetTab === tab}
+                      onClick={() => setSnippetTab(tab)}
+                      className={
+                        'cursor-pointer rounded-md px-2.5 py-1 text-xs font-medium transition ' +
+                        (snippetTab === tab ? 'bg-surface text-ink ring-1 ring-line' : 'text-ink-2 hover:text-ink')
                       }
-                    }}
-                  >
-                    Copy
-                  </button>
+                    >
+                      {tab === 'curl' ? 'curl' : 'JS'}
+                    </button>
+                  ))}
                 </div>
+
+                <button
+                  type="button"
+                  className="ml-auto rounded-lg border border-line px-2.5 py-1 text-xs font-medium text-ink hover:bg-subtle active:scale-[0.98] cursor-pointer"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(snippet);
+                      setToast({ kind: 'success', message: 'Copied snippet' });
+                    } catch {
+                      setToast({ kind: 'error', message: 'Copy failed (clipboard blocked)' });
+                    }
+                  }}
+                >
+                  Copy
+                </button>
               </div>
 
-              <pre className="mt-3 overflow-auto rounded-xl border border-gray-100 bg-gray-50 p-3 text-[12px] leading-5 text-gray-900">
-                {snippetTab === 'curl'
-                  ? `curl -X POST "${apiUrl}/track" \\\n  -H "x-api-key: <YOUR_API_KEY>" \\\n  -H "Content-Type: application/json" \\\n  -d '{"event":"signup_completed","queued":false}'`
-                  : `await fetch("${apiUrl}/track", {\n  method: "POST",\n  headers: {\n    "x-api-key": "<YOUR_API_KEY>",\n    "Content-Type": "application/json",\n  },\n  body: JSON.stringify({ event: "signup_completed", queued: false }),\n});`}
-              </pre>
+              <pre className="mt-3 overflow-auto rounded-lg border border-line bg-subtle p-3 font-mono text-[12px] leading-5 text-ink">{snippet}</pre>
 
               {!apiKeyPresent ? (
-                <p className="mt-2 text-xs text-amber-700">
-                  Set <span className="font-semibold">VITE_API_KEY</span> to enable requests from the dashboard.
+                <p className="mt-3 rounded-lg bg-warn-soft px-3 py-2 text-xs text-warn">
+                  Set <span className="font-mono font-medium">VITE_API_KEY</span> to enable requests from the dashboard.
                 </p>
               ) : null}
             </Card>

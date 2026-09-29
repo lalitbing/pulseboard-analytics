@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { Plus, X } from '@phosphor-icons/react';
 import { ConvexError } from 'convex/values';
 import { trackEvent } from '../api/analytics';
 import type { ToastInput } from '../lib/toastBus';
@@ -71,110 +72,90 @@ export default function EventTracker({
     }
   };
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isTracking) setIsOpen(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [isOpen, isTracking]);
+
+  const fieldClass =
+    'w-full rounded-lg border bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-3 focus:outline-none focus:ring-2 disabled:opacity-60 ';
+
   return (
     <>
       {/* Floating button bottom-right */}
-      <div className="fixed bottom-4 right-4 z-40 group">
+      <div className="fixed bottom-5 right-5 z-40">
         <button
           type="button"
           onClick={() => setIsOpen(true)}
-          className="flex items-center justify-center px-4 py-2.5 rounded-full shadow-lg bg-blue-600 text-white text-sm sm:text-base font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300 transition-all transform hover:scale-105 active:scale-95 cursor-pointer"
+          aria-label="Track custom event"
+          className="group flex items-center gap-2 rounded-full bg-accent py-2.5 pl-3 pr-3 text-sm font-medium text-accent-ink shadow-pop transition hover:bg-accent-hover hover:pr-4 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/30 cursor-pointer"
         >
-          {/* Text appears on hover (doesn't affect base padding) */}
-          <span className="hidden group-hover:inline-block mr-2 whitespace-nowrap text-sm sm:text-base">
-            Track custom event
-          </span>
-          {/* Plus icon with spin animation */}
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-5 w-5 transition-transform duration-300 group-hover:rotate-180"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <line x1="12" y1="5" x2="12" y2="19"></line>
-            <line x1="5" y1="12" x2="19" y2="12"></line>
-          </svg>
+          <Plus size={18} weight="bold" className="transition-transform duration-300 group-hover:rotate-90" />
+          <span className="hidden whitespace-nowrap group-hover:inline group-focus-visible:inline">Track event</span>
         </button>
       </div>
 
       {isOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40"
-          onClick={() => setIsOpen(false)}
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/40 animate-fade-in"
+          onClick={() => !isTracking && setIsOpen(false)}
           role="dialog"
           aria-modal="true"
+          aria-labelledby="track-event-title"
         >
           <div
-            className="w-full max-w-lg bg-white rounded-xl shadow-lg"
+            className="w-full max-w-lg rounded-xl border border-line bg-surface shadow-pop animate-pop-in"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Header with title + toggle */}
-            <div className="flex items-center justify-between gap-4 px-4 py-3 sm:px-6 sm:py-4 border-b border-gray-200">
-              <h2 className="text-base sm:text-lg font-semibold text-gray-900">
-                Track Event
+            <div className="flex items-center justify-between gap-4 px-5 py-4 border-b border-line">
+              <h2 id="track-event-title" className="text-base font-semibold tracking-tight text-ink">
+                Track event
               </h2>
-              <div
-                className={
-                  'rounded-lg border px-2 py-1 ' +
-                  (isTracking
-                    ? 'border-gray-200 bg-gray-50/80 text-gray-500 opacity-50'
-                    : 'border-transparent')
-                }
+              <button
+                type="button"
+                onClick={() => setIsOpen(false)}
+                disabled={isTracking}
+                className="-mr-1.5 cursor-pointer rounded-lg p-1.5 text-ink-2 hover:bg-subtle hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+                aria-label="Close"
               >
-                <div className="flex flex-col items-end">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs sm:text-sm text-gray-600" title="Write via the Convex scheduler (async queue) instead of inline">Queue (async)</span>
-                    <label
-                      className={
-                        'relative inline-flex items-center ' +
-                        (isTracking ? 'cursor-not-allowed opacity-70' : 'cursor-pointer')
-                      }
-                    >
-                      <input
-                        type="checkbox"
-                        checked={queued}
-                        onChange={(e) => setQueued(e.target.checked)}
-                        disabled={isTracking}
-                        className="sr-only peer"
-                      />
-                      <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600" />
-                    </label>
-                  </div>
-
-                </div>
-              </div>
+                <X size={16} />
+              </button>
             </div>
 
-            {/* Body with input + button */}
             <form
               onSubmit={(e) => {
                 e.preventDefault();
                 void submit();
               }}
-              className="px-4 py-4 sm:px-6 sm:py-5 space-y-4"
+              className="px-5 py-5 space-y-5"
             >
               <div className="flex flex-col gap-2">
-                <label htmlFor="event-name" className="text-sm font-medium text-gray-700">
+                <label htmlFor="event-name" className="text-sm font-medium text-ink">
                   Event name
                 </label>
                 <input
                   id="event-name"
                   type="text"
+                  autoFocus
                   value={eventName}
                   onChange={(e) => setEventName(e.target.value.replace(/[^a-zA-Z0-9_]/g, ''))}
-                  placeholder="Enter event name"
-                  className="border border-gray-300 rounded-md px-3 py-2 text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400"
+                  placeholder="signup_completed"
+                  aria-describedby="event-name-help"
+                  className={fieldClass + 'font-mono border-line-strong focus:border-accent focus:ring-accent/20'}
                   disabled={isTracking}
                 />
+                <p id="event-name-help" className="text-xs text-ink-3">
+                  Letters, numbers and underscores only.
+                </p>
               </div>
 
               <div className="flex flex-col gap-2">
-                <label htmlFor="event-props" className="text-sm font-medium text-gray-700">
-                  Properties (JSON)
+                <label htmlFor="event-props" className="text-sm font-medium text-ink">
+                  Properties <span className="font-normal text-ink-3">(JSON, optional)</span>
                 </label>
                 <textarea
                   id="event-props"
@@ -189,41 +170,62 @@ export default function EventTracker({
                     if (propertiesError) onToast?.(propertiesError);
                   }}
                   placeholder='{"plan":"pro","source":"cta"}'
+                  aria-invalid={Boolean(propertiesError)}
                   className={
-                    'border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400 font-mono min-h-[92px] ' +
-                    (propertiesError ? 'border-red-300' : 'border-gray-300')
+                    fieldClass +
+                    'font-mono text-[13px] min-h-[96px] ' +
+                    (propertiesError ? 'border-bad focus:border-bad focus:ring-bad/20' : 'border-line-strong focus:border-accent focus:ring-accent/20')
                   }
                   disabled={isTracking}
                 />
-                {propertiesError ? (
-                  <p className="text-xs text-red-700">{propertiesError}</p>
-                ) : null}
+                {propertiesError ? <p className="text-xs text-bad">{propertiesError}</p> : null}
               </div>
 
+              <label
+                className={
+                  'flex items-start justify-between gap-4 rounded-lg border border-line bg-subtle px-3 py-2.5 ' +
+                  (isTracking ? 'cursor-not-allowed opacity-60' : 'cursor-pointer')
+                }
+              >
+                <span>
+                  <span className="block text-sm font-medium text-ink">Queue (async)</span>
+                  <span className="block text-xs text-ink-3">Write via the Convex scheduler instead of inline.</span>
+                </span>
+                <span className="relative mt-0.5 inline-flex shrink-0 items-center">
+                  <input
+                    type="checkbox"
+                    checked={queued}
+                    onChange={(e) => setQueued(e.target.checked)}
+                    disabled={isTracking}
+                    className="sr-only peer"
+                  />
+                  <span className="h-5 w-9 rounded-full bg-line-strong transition peer-checked:bg-accent peer-focus-visible:ring-2 peer-focus-visible:ring-accent/40 after:absolute after:left-0.5 after:top-0.5 after:h-4 after:w-4 after:rounded-full after:bg-surface after:shadow-sm after:transition-transform after:content-[''] peer-checked:after:translate-x-4" />
+                </span>
+              </label>
+
               {error ? (
-                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+                <div role="alert" className="rounded-lg border border-bad/30 bg-bad-soft px-3 py-2 text-sm text-bad">
                   {error}
                 </div>
               ) : null}
 
-              <div className="flex justify-end gap-3 pt-2">
+              <div className="flex justify-end gap-2 pt-1">
                 <button
                   type="button"
-                  className="px-3 py-2 rounded-md text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 cursor-pointer"
+                  className="rounded-lg px-3 py-2 text-sm font-medium text-ink-2 hover:bg-subtle hover:text-ink cursor-pointer"
                   onClick={() => setIsOpen(false)}
                   disabled={isTracking}
                 >
                   Cancel
                 </button>
                 <button
-                  type="button"
-                  onClick={() => void submit()}
+                  type="submit"
                   disabled={!eventName.trim() || isTracking}
                   className={
-                    'px-4 py-2 rounded-md text-sm font-medium transition ' +
+                    'rounded-lg px-4 py-2 text-sm font-medium transition active:scale-[0.98] ' +
                     (eventName.trim() && !isTracking
-                      ? 'bg-green-600 text-white hover:bg-green-700 cursor-pointer'
-                      : 'bg-gray-300 text-gray-500 cursor-not-allowed')
+                      ? 'bg-accent text-accent-ink hover:bg-accent-hover cursor-pointer'
+                      : 'bg-subtle text-ink-3 cursor-not-allowed')
                   }
                 >
                   {isTracking ? 'Tracking…' : 'Track'}

@@ -1,83 +1,77 @@
 import { useEffect, useState, type ReactNode } from 'react';
+import { CaretLeft, CaretRight, ChartLineUp, List, ListBullets, Plugs, X, type Icon } from '@phosphor-icons/react';
 import EventTracker from './EventTracker';
 import LiveStatus, { type LiveStatusProblem } from './LiveStatus';
+import ThemeToggle from './ThemeToggle';
+import { useTheme } from '../lib/theme';
 import type { ToastInput } from '../lib/toastBus';
+
+type NavLabel = 'Overview' | 'Events' | 'Integration';
+
+const NAV: { label: NavLabel; icon: Icon }[] = [
+  { label: 'Overview', icon: ChartLineUp },
+  { label: 'Events', icon: ListBullets },
+  { label: 'Integration', icon: Plugs },
+];
+
+const iconButtonClass =
+  'cursor-pointer rounded-lg p-1.5 text-ink-2 hover:bg-subtle hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40';
+
+function Brand() {
+  return (
+    <div className="flex items-center gap-2.5">
+      <img src="/favicon.svg" alt="" width={28} height={28} className="h-7 w-7 shrink-0" />
+      <div className="leading-tight">
+        <p className="text-sm font-semibold tracking-tight text-ink">Pulseboard</p>
+        <p className="text-[11px] text-ink-3">Product analytics</p>
+      </div>
+    </div>
+  );
+}
 
 function TipCarousel({
   tips,
   tipIndex,
   onPrev,
   onNext,
-  onSelect,
   containerClassName,
 }: {
   tips: string[];
   tipIndex: number;
   onPrev: () => void;
   onNext: () => void;
-  onSelect: (idx: number) => void;
   containerClassName: string;
 }) {
   return (
     <div className={containerClassName}>
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold text-gray-900">Tips</p>
-          <p className="mt-1 text-xs text-gray-600">{tips[tipIndex] ?? ''}</p>
-        </div>
-
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs font-medium text-ink">Tip</p>
         {tips.length > 1 ? (
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={onPrev}
-              className="cursor-pointer rounded-lg p-1.5 text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900/10"
-              aria-label="Previous tip"
-            >
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
+          <div className="-mr-1 flex items-center">
+            <button type="button" onClick={onPrev} className={iconButtonClass} aria-label="Previous tip">
+              <CaretLeft size={14} />
             </button>
-            <button
-              type="button"
-              onClick={onNext}
-              className="cursor-pointer rounded-lg p-1.5 text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900/10"
-              aria-label="Next tip"
-            >
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
+            <button type="button" onClick={onNext} className={iconButtonClass} aria-label="Next tip">
+              <CaretRight size={14} />
             </button>
           </div>
         ) : null}
       </div>
-
-      {tips.length > 1 ? (
-        <div className="mt-2 flex items-center gap-1.5">
-          {tips.map((_, idx) => (
-            <button
-              key={idx}
-              type="button"
-              onClick={() => onSelect(idx)}
-              aria-label={`Go to tip ${idx + 1}`}
-              className={
-                'h-1.5 w-1.5 rounded-full transition-colors ' +
-                (idx === tipIndex ? 'bg-gray-900' : 'bg-gray-300 hover:bg-gray-400')
-              }
-            />
-          ))}
-        </div>
-      ) : null}
+      <p key={tipIndex} className="mt-1.5 min-h-[4.5em] text-xs leading-relaxed text-ink-2 animate-fade-in">
+        {tips[tipIndex] ?? ''}
+      </p>
     </div>
   );
 }
 
 function NavItem({
   label,
+  icon: IconCmp,
   active,
   onClick,
 }: {
   label: string;
+  icon: Icon;
   active?: boolean;
   onClick?: () => void;
 }) {
@@ -85,13 +79,13 @@ function NavItem({
     <button
       type="button"
       onClick={onClick}
+      aria-current={active ? 'page' : undefined}
       className={
-        'w-full cursor-pointer flex items-center justify-between rounded-xl px-3 py-2 text-sm transition focus:outline-none focus:ring-2 focus:ring-gray-900/10 ' +
-        (active
-          ? 'bg-gray-900 text-white hover:bg-gray-800'
-          : 'text-gray-700 hover:bg-gray-100')
+        'group w-full cursor-pointer flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 ' +
+        (active ? 'bg-surface text-ink ring-1 ring-line' : 'text-ink-2 hover:bg-subtle hover:text-ink')
       }
     >
+      <IconCmp size={16} weight={active ? 'fill' : 'regular'} className={active ? 'text-accent' : 'text-ink-3 group-hover:text-ink-2'} />
       <span className="font-medium">{label}</span>
     </button>
   );
@@ -114,18 +108,19 @@ export default function AppShell({
   right?: ReactNode;
   sidebar?: ReactNode;
   children: ReactNode;
-  activeNav?: 'Overview' | 'Events' | 'Integration';
-  onNavigate?: (label: 'Overview' | 'Events' | 'Integration') => void;
+  activeNav?: NavLabel;
+  onNavigate?: (label: NavLabel) => void;
   onEventTracked?: () => void;
   onToast?: (toast: ToastInput) => void;
   liveProblem?: LiveStatusProblem;
 }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [tipIndex, setTipIndex] = useState(0);
+  const theme = useTheme();
   const tips = [
-    'Use the date filter to quickly narrow down spikes—start with the last 24h when debugging.',
+    'Use the date filter to narrow down spikes. Start with the last 7 days when debugging.',
     'Keep the dashboard open while validating instrumentation: new events show up live.',
-    'Add consistent properties (e.g., userId, plan, source) to make filtering and segmentation much more powerful.',
+    'Add consistent properties (e.g. userId, plan, source) to make filtering and segmentation more powerful.',
     'Queued tracking hands events to the Convex scheduler, so the request returns before the write lands.',
   ] as const;
 
@@ -141,6 +136,15 @@ export default function AppShell({
   }, [mobileMenuOpen]);
 
   useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMobileMenuOpen(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [mobileMenuOpen]);
+
+  useEffect(() => {
     if (tips.length <= 1) return;
     const id = window.setInterval(() => {
       setTipIndex((i) => (i + 1) % tips.length);
@@ -148,41 +152,38 @@ export default function AppShell({
     return () => window.clearInterval(id);
   }, [tips.length]);
 
-  const handleNavClick = (label: 'Overview' | 'Events' | 'Integration') => {
+  const handleNavClick = (label: NavLabel) => {
     onNavigate?.(label);
     setMobileMenuOpen(false);
   };
 
   const nextTip = () => setTipIndex((i) => (i + 1) % tips.length);
   const prevTip = () => setTipIndex((i) => (i - 1 + tips.length) % tips.length);
-  const selectTip = (idx: number) => setTipIndex(((idx % tips.length) + tips.length) % tips.length);
+
+  const nav = (
+    <nav aria-label="Primary" className="space-y-0.5">
+      {NAV.map((item) => (
+        <NavItem
+          key={item.label}
+          label={item.label}
+          icon={item.icon}
+          active={activeNav === item.label}
+          onClick={() => handleNavClick(item.label)}
+        />
+      ))}
+    </nav>
+  );
+
+  const railPanelClass = 'rounded-xl border border-line bg-surface p-4';
 
   return (
-    <div className="min-h-screen flex flex-col bg-linear-to-b from-gray-50 to-white">
-      {/* Subtle grain */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none fixed inset-0 opacity-[0.08] bg-[radial-gradient(#000_1px,transparent_1px)] bg-size-[18px_18px]"
-      />
-
+    <div className="min-h-[100dvh] flex flex-col bg-canvas">
       {/* Mobile Header */}
-      <div className="lg:hidden sticky top-0 z-50 bg-white/80 backdrop-blur border-b border-gray-200/70 shadow-sm">
+      <div className="lg:hidden sticky top-0 z-30 border-b border-line bg-canvas/90 backdrop-blur">
         <div className="flex items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-2">
-            <p className="text-sm font-semibold tracking-tight text-gray-900">Pulseboard</p>
-            <span className="text-[10px] font-medium rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5">
-              beta
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={() => setMobileMenuOpen(true)}
-            className="cursor-pointer rounded-lg p-2 text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900/10"
-            aria-label="Open menu"
-          >
-            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
+          <Brand />
+          <button type="button" onClick={() => setMobileMenuOpen(true)} className={iconButtonClass} aria-label="Open menu">
+            <List size={20} />
           </button>
         </div>
       </div>
@@ -191,129 +192,73 @@ export default function AppShell({
       {mobileMenuOpen && (
         <>
           <div
-            className="fixed inset-0 bg-black/40 lg:hidden"
-            style={{ zIndex: 100 }}
+            className="fixed inset-0 z-40 bg-black/40 lg:hidden animate-fade-in"
             onClick={() => setMobileMenuOpen(false)}
             aria-hidden="true"
           />
-          <div className="fixed inset-y-0 left-0 w-[280px] bg-white shadow-xl lg:hidden overflow-y-auto" style={{ zIndex: 101 }}>
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
-              <div className="flex items-center gap-2">
-                <p className="text-sm font-semibold tracking-tight text-gray-900">Pulseboard</p>
-                <span className="text-[10px] font-medium rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5">
-                  beta
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setMobileMenuOpen(false)}
-                className="cursor-pointer rounded-lg p-2 text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900/10"
-                aria-label="Close menu"
-              >
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+          <div
+            className="fixed inset-y-0 left-0 z-40 w-[280px] overflow-y-auto border-r border-line bg-canvas lg:hidden animate-slide-in-left"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Menu"
+          >
+            <div className="flex items-center justify-between px-4 py-3 border-b border-line">
+              <Brand />
+              <button type="button" onClick={() => setMobileMenuOpen(false)} className={iconButtonClass} aria-label="Close menu">
+                <X size={18} />
               </button>
             </div>
 
-            <div className="p-4 space-y-6">
-              <div className="space-y-2">
-                <p className="px-2 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
-                  Navigation
-                </p>
-                <NavItem label="Overview" active={activeNav === 'Overview'} onClick={() => handleNavClick('Overview')} />
-                <NavItem label="Events" active={activeNav === 'Events'} onClick={() => handleNavClick('Events')} />
-                <NavItem label="Integration" active={activeNav === 'Integration'} onClick={() => handleNavClick('Integration')} />
-              </div>
-
-              <TipCarousel
-                tips={[...tips]}
-                tipIndex={tipIndex}
-                onPrev={prevTip}
-                onNext={nextTip}
-                onSelect={selectTip}
-                containerClassName="rounded-2xl border border-gray-200/70 bg-gray-50 p-4"
-              />
-
-              <LiveStatus problem={liveProblem} className="rounded-2xl border border-gray-200/70 bg-gray-50 p-4" />
+            <div className="p-3 space-y-4">
+              {nav}
+              <TipCarousel tips={[...tips]} tipIndex={tipIndex} onPrev={prevTip} onNext={nextTip} containerClassName={railPanelClass} />
+              <LiveStatus problem={liveProblem} className={railPanelClass} />
+              <ThemeToggle preference={theme.preference} onChange={theme.setPreference} className={railPanelClass} />
             </div>
           </div>
         </>
       )}
 
-      <div className="mx-auto max-w-7xl w-full flex-1">
-        <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-6 px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1400px] w-full flex-1">
+        <div className="grid grid-cols-1 lg:grid-cols-[232px_1fr] gap-6 lg:gap-8 px-4 py-6 sm:px-6 lg:px-8">
           {/* Desktop Sidebar */}
           <aside className="hidden lg:block">
             <div className="sticky top-6 space-y-6">
-              <div className="rounded-2xl border border-gray-200/70 bg-white/80 backdrop-blur shadow-sm px-4 py-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-semibold tracking-tight text-gray-900">
-                      Pulseboard
-                    </p>
-                    <p className="text-xs text-gray-600">Product analytics</p>
-                  </div>
-                  <span className="text-[10px] font-medium rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5">
-                    beta
-                  </span>
-                </div>
+              <div className="flex items-center justify-between px-1">
+                <Brand />
+                <span className="rounded-md border border-line px-1.5 py-0.5 text-[10px] font-medium text-ink-3">beta</span>
               </div>
 
-              <div className="space-y-2">
-                <p className="px-2 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
-                  Navigation
-                </p>
-                <NavItem label="Overview" active={activeNav === 'Overview'} onClick={() => handleNavClick('Overview')} />
-                <NavItem label="Events" active={activeNav === 'Events'} onClick={() => handleNavClick('Events')} />
-                <NavItem label="Integration" active={activeNav === 'Integration'} onClick={() => handleNavClick('Integration')} />
+              {nav}
+
+              <div className="space-y-3">
+                <TipCarousel tips={[...tips]} tipIndex={tipIndex} onPrev={prevTip} onNext={nextTip} containerClassName={railPanelClass} />
+                <LiveStatus problem={liveProblem} className={railPanelClass} />
+                <ThemeToggle preference={theme.preference} onChange={theme.setPreference} className={railPanelClass} />
               </div>
 
-              <TipCarousel
-                tips={[...tips]}
-                tipIndex={tipIndex}
-                onPrev={prevTip}
-                onNext={nextTip}
-                onSelect={selectTip}
-                containerClassName="rounded-2xl border border-gray-200/70 bg-white/80 backdrop-blur shadow-sm p-4"
-              />
-
-              <LiveStatus problem={liveProblem} className="rounded-2xl border border-gray-200/70 bg-white/80 backdrop-blur shadow-sm p-4" />
-
-              {sidebar ? (
-                <div className="rounded-2xl border border-gray-200/70 bg-white/80 backdrop-blur shadow-sm overflow-hidden">
-                  {sidebar}
-                </div>
-              ) : null}
+              {sidebar ? <div className="overflow-hidden rounded-xl border border-line bg-surface">{sidebar}</div> : null}
             </div>
           </aside>
 
           {/* Main */}
           <main className="min-w-0 relative">
-            <header className="relative z-50 rounded-2xl border border-gray-200/70 bg-white/80 backdrop-blur shadow-sm px-4 py-4 sm:px-6">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <div className="min-w-0">
-                  <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-gray-900">
-                    {title}
-                  </h1>
-                  {subtitle ? (
-                    <p className="mt-1 text-sm text-gray-600">{subtitle}</p>
-                  ) : null}
-                </div>
-                {right ? <div className="shrink-0">{right}</div> : null}
+            <header className="relative z-20 flex flex-col gap-4 pb-6 sm:flex-row sm:items-end sm:justify-between">
+              <div className="min-w-0">
+                <h1 className="text-2xl font-semibold tracking-tight text-ink">{title}</h1>
+                {subtitle ? <p className="mt-1 text-sm text-ink-3">{subtitle}</p> : null}
               </div>
+              {right ? <div className="shrink-0">{right}</div> : null}
             </header>
 
-            <div className="relative mt-6">{children}</div>
+            <div className="relative">{children}</div>
           </main>
         </div>
       </div>
 
-      <footer className="mt-auto border-t border-gray-200/70 bg-white/70 backdrop-blur">
-        <div className="mx-auto max-w-7xl px-4 py-2 sm:px-6 lg:px-8">
-          <p className="text-center text-xs text-gray-600">
-            © {new Date().getFullYear()} Pulseboard. MIT Licensed.
-          </p>
+      <footer className="mt-auto border-t border-line">
+        <div className="mx-auto max-w-[1400px] px-4 py-3 sm:px-6 lg:px-8">
+          <p className="text-xs text-ink-3">© {new Date().getFullYear()} Pulseboard. MIT Licensed.</p>
         </div>
       </footer>
 

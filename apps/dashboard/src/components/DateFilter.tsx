@@ -28,23 +28,24 @@ export default function DateFilter({
   onCustomOpen,
   right,
 }: DateFilterProps) {
-  const pillClass = (active: boolean) =>
-    'cursor-pointer rounded-full px-3 py-1.5 text-xs font-semibold border transition focus:outline-none focus:ring-2 focus:ring-gray-900/10 ' +
-    (active
-      ? 'bg-gray-900 text-white border-gray-900 hover:bg-gray-800'
-      : 'bg-white text-gray-800 border-gray-200 hover:bg-gray-50');
+  const segmentClass = (active: boolean) =>
+    'cursor-pointer rounded-md px-3 py-1 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 ' +
+    (active ? 'bg-surface text-ink shadow-[0_1px_2px_rgb(0_0_0/0.08)] ring-1 ring-line' : 'text-ink-2 hover:text-ink');
+
+  const inputClass =
+    'cursor-pointer rounded-lg border border-line bg-surface px-2.5 py-1.5 font-mono text-xs text-ink focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20';
 
   return (
     <div className="flex flex-col items-stretch gap-2">
-      <div className="flex flex-row sm:items-center sm:justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <button type="button" className={pillClass(activePreset === 'all')} onClick={() => onPresetClick('all')}>
+      <div className="flex flex-row items-center justify-between gap-2">
+        <div role="group" aria-label="Date range" className="inline-flex items-center gap-0.5 rounded-lg bg-subtle p-0.5">
+          <button type="button" aria-pressed={activePreset === 'all'} className={segmentClass(activePreset === 'all')} onClick={() => onPresetClick('all')}>
             All
           </button>
-          <button type="button" className={pillClass(activePreset === '7d')} onClick={() => onPresetClick('7d')}>
+          <button type="button" aria-pressed={activePreset === '7d'} className={segmentClass(activePreset === '7d')} onClick={() => onPresetClick('7d')}>
             7D
           </button>
-          <button type="button" className={pillClass(activePreset === 'custom')} onClick={onCustomOpen}>
+          <button type="button" aria-pressed={activePreset === 'custom'} className={segmentClass(activePreset === 'custom')} onClick={onCustomOpen}>
             Custom
           </button>
         </div>
@@ -53,28 +54,18 @@ export default function DateFilter({
       </div>
 
       {customOpen ? (
-        <div className="flex flex-wrap items-end gap-2">
-          <input
-            type="date"
-            className="cursor-pointer rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/10"
-            value={range.from}
-            onChange={(e) => onChange('from', e.target.value)}
-          />
-
-          <input
-            type="date"
-            className="cursor-pointer rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/10"
-            value={range.to}
-            onChange={(e) => onChange('to', e.target.value)}
-          />
+        <div className="flex flex-wrap items-center gap-2 animate-fade-in">
+          <label className="sr-only" htmlFor="range-from">From</label>
+          <input id="range-from" type="date" className={inputClass} value={range.from} onChange={(e) => onChange('from', e.target.value)} />
+          <span className="text-xs text-ink-3">to</span>
+          <label className="sr-only" htmlFor="range-to">To</label>
+          <input id="range-to" type="date" className={inputClass} value={range.to} onChange={(e) => onChange('to', e.target.value)} />
 
           <button
             type="button"
             className={
-              'rounded-xl px-3 py-2 text-sm font-medium shadow-sm transition ' +
-              (hasChanges
-                ? 'bg-gray-900 text-white hover:bg-gray-800 cursor-pointer'
-                : 'bg-gray-100 text-gray-400 cursor-not-allowed')
+              'rounded-lg px-3 py-1.5 text-xs font-medium transition active:scale-[0.98] ' +
+              (hasChanges ? 'bg-ink text-surface hover:opacity-90 cursor-pointer' : 'bg-subtle text-ink-3 cursor-not-allowed')
             }
             disabled={!hasChanges}
             onClick={() => {

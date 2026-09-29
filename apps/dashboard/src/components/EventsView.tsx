@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { MagnifyingGlass } from '@phosphor-icons/react';
 import { formatIstDateTime, toIstIso } from '../lib/time';
 
 type RawEvent = {
@@ -70,82 +71,86 @@ export default function EventsView({
     return list.sort(sorter);
   }, [events, normalized, selectedEventName, sort]);
 
+  const controlClass =
+    'rounded-lg border border-line bg-surface py-2 text-sm text-ink placeholder:text-ink-3 focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20';
+
   return (
-    <div className="rounded-2xl border border-gray-200/70 bg-white/80 backdrop-blur shadow-sm">
-      <div className="flex flex-col gap-3 p-4 sm:p-5 border-b border-gray-200">
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-          {selectedEventName ? (
-            <button
-              type="button"
-              className="self-start rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-900 shadow-sm hover:bg-gray-50 cursor-pointer"
-              onClick={onClearSelected}
-            >
-              Clear selection
-            </button>
-          ) : null}
-        </div>
+    <div className="rounded-xl border border-line bg-surface">
+      <div className="flex flex-col gap-3 p-4 sm:p-5 border-b border-line">
+        {selectedEventName ? (
+          <button
+            type="button"
+            className="self-start rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-ink hover:bg-subtle cursor-pointer"
+            onClick={onClearSelected}
+          >
+            Clear selection
+          </button>
+        ) : null}
 
         <div className="flex flex-col sm:flex-row gap-2">
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search event name…"
-            className="flex-1 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/10"
-          />
-          <select
-            value={sort}
-            onChange={(e) => setSort(e.target.value as SortKey)}
-            className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/10"
-          >
-            <option value="time_desc">Sort: Newest</option>
-            <option value="time_asc">Sort: Oldest</option>
-            <option value="name">Sort: Name</option>
+          <div className="relative flex-1">
+            <MagnifyingGlass size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-3" />
+            <label htmlFor="events-search" className="sr-only">
+              Search event name
+            </label>
+            <input
+              id="events-search"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search event name…"
+              className={controlClass + ' w-full pl-9 pr-3'}
+            />
+          </div>
+          <label htmlFor="events-sort" className="sr-only">
+            Sort
+          </label>
+          <select id="events-sort" value={sort} onChange={(e) => setSort(e.target.value as SortKey)} className={controlClass + ' px-3 cursor-pointer'}>
+            <option value="time_desc">Newest first</option>
+            <option value="time_asc">Oldest first</option>
+            <option value="name">Name</option>
           </select>
         </div>
       </div>
 
-      <div className="p-2 sm:p-3">
-        {/* “Not a table”, but table-like */}
-        <div className="hidden sm:grid grid-cols-[1.2fr_0.9fr_0.45fr] gap-3 px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+      <div>
+        <div className="hidden sm:grid grid-cols-[1.2fr_0.9fr_0.45fr] gap-3 border-b border-line bg-subtle/60 px-5 py-2 text-xs font-medium text-ink-3">
           <div>Event</div>
-          <div>Timestamp</div>
+          <div>Timestamp (IST)</div>
           <div className="text-right">Age</div>
         </div>
 
         {loading ? (
-          <div className="space-y-2 p-2">
+          <div className="divide-y divide-line">
             {Array.from({ length: 12 }).map((_, i) => (
-              <div key={i} className="h-12 rounded-xl bg-gray-100 animate-pulse" />
+              <div key={i} className="grid grid-cols-1 sm:grid-cols-[1.2fr_0.9fr_0.45fr] gap-3 px-5 py-3 animate-pulse">
+                <div className="h-4 w-40 rounded bg-subtle" />
+                <div className="hidden sm:block h-4 w-36 rounded bg-subtle" />
+                <div className="hidden sm:block ml-auto h-4 w-12 rounded bg-subtle" />
+              </div>
             ))}
           </div>
         ) : rows.length ? (
-          <div className="pr-1">
-            <ul className="space-y-1">
-              {rows.map((e, idx) => (
-                <li
-                  key={`${e.created_at}-${e.event_name}-${idx}`}
-                  className="rounded-xl border border-gray-100 bg-white px-3 py-2 hover:border-gray-200 transition"
-                >
-                  <div className="grid grid-cols-1 sm:grid-cols-[1.2fr_0.9fr_0.45fr] gap-2 sm:gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-gray-900">{e.event_name}</p>
-                      <p className="mt-0.5 truncate text-[11px] text-gray-600">{toIstIso(e.created_at)}</p>
-                    </div>
-                    <div className="text-sm text-gray-900">{fmtFull(e.created_at)}</div>
-                    <div className="text-right text-sm text-gray-700 tabular-nums">{fmtAgo(e.created_at)}</div>
+          <ul className="divide-y divide-line">
+            {rows.map((e, idx) => (
+              <li key={`${e.created_at}-${e.event_name}-${idx}`} className="px-5 py-2.5 transition-colors hover:bg-subtle/60">
+                <div className="grid grid-cols-1 sm:grid-cols-[1.2fr_0.9fr_0.45fr] items-center gap-1 sm:gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate font-mono text-[13px] text-ink">{e.event_name}</p>
+                    <p className="mt-0.5 truncate font-mono text-[11px] text-ink-3">{toIstIso(e.created_at)}</p>
                   </div>
-                </li>
-              ))}
-            </ul>
-          </div>
+                  <div className="text-sm text-ink-2">{fmtFull(e.created_at)}</div>
+                  <div className="sm:text-right font-mono text-xs text-ink-3 tabular-nums">{fmtAgo(e.created_at)}</div>
+                </div>
+              </li>
+            ))}
+          </ul>
         ) : (
-          <div className="px-4 py-10 text-center">
-            <p className="text-sm font-medium text-gray-900">No events found</p>
-            <p className="mt-1 text-xs text-gray-600">Try changing the date range, selection, or search.</p>
+          <div className="px-4 py-14 text-center">
+            <p className="text-sm font-medium text-ink">No events found</p>
+            <p className="mt-1 text-xs text-ink-3">Try changing the date range or search.</p>
           </div>
         )}
       </div>
     </div>
   );
 }
-
